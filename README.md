@@ -41,6 +41,16 @@ public class Dog {
     public boolean bitable;
 }
 
+// serialize with json-b
+JSONBReflection reflection = new JSONBReflection();
+JSONBGenericCls<?> dogCls = new JSONBGenericCls<Dog>(Dog.Class);
+Dog dog = (Dog) reflection.fromJSONB("{name:\"Falco\",age:4,bitable:false}", dogCls);
+
+```
+
+## serializing an object
+
+```
 // Create a dog instance
 Dog dog = new Dog();
 dog.name = "Falco";
@@ -48,27 +58,22 @@ dog.age = 4;
 dog.bitable = false;
 
 // serialize with json-b
-JSONBReflection reflection = new JSONBReflection();
 JSONBGenericCls<?> dogCls = new JSONBGenericCls<Dog>(Dog.Class);
-Dog dog1 = (Dog) reflection.fromJSONB("{name:\"Falco\",age:4,bitable:false}", dogCls);
+JSONBReflection reflection = new JSONBReflection();
+String result = reflection.toJSONB(dog, dogCls);
 ```
 
-### mapping a collection
+### working with collections
 
 ```
 // more than 1 dog
-Dog[2] dogs = new Dog[2];
-dogs[0] = falco;
-dogs[1] = cassidy;
-
 JSONBReflection reflection = new JSONBReflection();
 JSONBGenericCls<?> dogCls = new JSONBGenericCls<Dog>(Dog.Class);
+// create our collection
+Dog[2] dogs = (Dog) reflection.fromJSONBArray("[{name:\"Falco\",age:4,bitable:false}, {name:\"Cassidy\",age:4,bitable:false}]", dogCls);
+
+// serialize into JSON-B string
 String result = reflection.toJSONBArray(dogs, dogCls);
+```
 
-// deserialize our json-b string
-dogs = reflection.fromJSONBArray(result, dogCls);
-```
-```
 more coming soon..
-
-
