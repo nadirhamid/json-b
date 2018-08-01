@@ -3,6 +3,7 @@
 
 #define JSONB_DEBUG 1
 #define JSONB_END_OF_READ -1 
+#define JSONB_END_OF_READ_ALL -2 
 #define JSONB_CONTINUE_READ 1
 #define JSONB_READ_ERROR 0
 #define JSONB_FLOAT_PRECISION "."
@@ -26,6 +27,7 @@
 #define JSONB_VALUE_STRING 3
 #include <jni.h>
 #include <float.h>
+#include <ctype.h>
 #include "lexer.h"
 
 struct value_str;
@@ -160,13 +162,14 @@ char* jsonb_get_token_index(struct parser* parser, int* index);
 int jsonb_Verify_int(char* token);
 int jsonb_parser_is_root(struct parser* parser);
 struct parser* jsonb_parser_get_root(struct parser* parser);
-int jsonb_parser_single_end(struct parser* parser, char* token);
+int jsonb_parser_parent_end(struct parser* parser, char* token);
 
 void jsonb_set_opened_status(struct parser* parser);
 void jsonb_set_type_validated(struct parser* parser, int value);
 void jsonb_set_code_continue(struct parser* parser);
 void jsonb_set_code_error(struct parser* parser); 
 void jsonb_set_code_end(struct parser* parser);
+void jsonb_set_code_end_all(struct parser* parser);
 void jsonb_set_value_from_child(struct parser* parser, struct parser* child);
 void jsonb_parser_value_next(struct parser* parser, struct parser* child);
 void jsonb_set_opened(struct parser* parser, struct opened_token* opened, int value);
@@ -186,6 +189,13 @@ void jsonb_debug_value(struct parser* parser, struct value_dynamic* value);
 jobject jsonb_create_java_object_from_class(JNIEnv* env, jclass cls);
 jobjectArray jsonb_reset_java_array(JNIEnv* env, jclass target, jobjectArray* current);
 void jsonb_generic_parse(struct parser** parser, const char* str);
+int jsonb_token_cmp(char* token, const char* target);
+int jsonb_token_end_cmp(char* token, const char* target);
+int jsonb_token_int_cmp(struct parser* parser, char* token);
+int jsonb_token_str_cmp(struct parser* parser, char* token);
+int jsonb_validate_parent_end(struct parser* parser, char* token);
+void jsonb_parser_error(struct parser* parser, char* details);
+void jsonb_parser_error_index(struct parser* parser, char* token);
 
 jstring jsonb_generic_write_obj(JNIEnv* env, jobject target, jclass cls, jobjectArray fields);
 jstring jsonb_generic_write(JNIEnv* env, jobjectArray target, jclass cls, jobjectArray fields);

@@ -77,7 +77,7 @@ struct parser* jsonb_parser_get_root(struct parser* parser)
 	return parser->root;
 }
 
-int jsonb_parser_single_end(struct parser* parser, char* token)
+int jsonb_parser_parent_end(struct parser* parser, char* token)
 {
 	int root;
 	struct parser* parent = parser->parent;
@@ -120,6 +120,15 @@ int jsonb_verify_int(char* token)
 	}
 	return JSONB_CONTINUE_READ;
 
+}
+
+int jsonb_verify_str(char* token)
+{
+    int token_int = (int) *token;
+    if( isalpha( token_int ) ) {
+         return JSONB_CONTINUE_READ;
+    }
+    return JSONB_READ_ERROR;
 }
 
 int jsonb_reserved_tokens(struct parser* parser)
@@ -265,6 +274,11 @@ void jsonb_set_code_error(struct parser* parser)
 void jsonb_set_code_end(struct parser* parser)
 {
 	parser->code = JSONB_END_OF_READ;
+}
+
+void jsonb_set_code_end_all(struct parser* parser)
+{
+	parser->code = JSONB_END_OF_READ_ALL;
 }
 
 
@@ -489,11 +503,16 @@ char* jsonb_get_token_index(struct parser* parser, int* index)
        	const char* str;
 	char* token;
 	jsonb_parser_get_str( parser, &str );
-	my_char = str[ *index ];
-	token = (char*)malloc(sizeof(char));
-	*token = my_char;
-	token[1] = '\0';
-	return token;
+    size_t len = strlen( str );
+    if ((*index) < len) {
+        my_char = str[ *index ];
+        token = (char*)malloc(sizeof(char));
+        *token = my_char;
+        token[1] = '\0';
+        return token;
+    }
+    token = NULL;
+    return token;
 }
 
 char* jsonb_get_token(struct parser* parser)
@@ -702,61 +721,59 @@ void jsonb_resolve_parser_token_array(struct parser* parser)
 {
 	char* token = jsonb_get_token(parser);
 	printf("jsonb_resolve_parser_token_array vtoken %s\r\n", token);
-	int single_end = jsonb_parser_single_end(parser, token);
-	int verify_int = jsonb_verify_int( token );
- 	if ( strcmp( token, JSONB_QUOTE ) == 0 ) { // has to be string
+	int parent_end = jsonb_parser_parent_end(parser, token);
+ 	if ( jsonb_token_cmp( token, JSONB_QUOTE ) == 0 ) { // has to be string
 		printf("Parsing str value\r\n");
 		jsonb_resolve_child_parser(
 				parser,
 				JSONB_PARSER_TYPE_STR);
 		return;
-	} else if ( verify_int == JSONB_CONTINUE_READ ) {
+	} else if ( jsonb_token_int_cmp( parser, token ) == 0 ) {
 		jsonb_resolve_child_parser(
 		parser,
 		JSONB_PARSER_TYPE_INT);
 		return;
-	} else if ( strcmp( token, JSONB_WHITESPACE )  == 0 ) {
+	} else if ( jsonb_token_cmp( token, JSONB_WHITESPACE )  == 0 ) {
 		jsonb_set_code_continue( parser );
 		return;
-	} else if ( strcmp( token, JSONB_ESCAPE ) == 0 ) {
-		printf("Illegal escape\r\n");
-		jsonb_set_code_error( parser );
+	} else if ( jsonb_token_cmp( token, JSONB_ESCAPE ) == 0 ) {
+        jsonb_parser_error_index( parser, token );
 		return;
-	} else if ( strcmp( token, JSONB_COLON ) == 0 )  {
-		printf("Illegal colon\r\n");
-		jsonb_set_code_error( parser );
+	} else if ( jsonb_token_cmp( token, JSONB_COLON ) == 0 )  {
+        jsonb_parser_error_index( parser, token );
 		return;
 
-	} else if ( strcmp( token, JSONB_ARRAY_START_TOKEN ) == 0 ) {
+	} else if ( jsonb_token_cmp( token, JSONB_ARRAY_START_TOKEN ) == 0 ) {
 		jsonb_set_code_continue( parser );
 		return;
-	} else if ( strcmp( token, JSONB_ARRAY_END_TOKEN ) == 0) {
+	} else if ( jsonb_token_end_cmp( token, JSONB_ARRAY_END_TOKEN ) == 0) {
 		jsonb_reset_parser( parser );
 		jsonb_set_code_end( parser );
 		return;
-	} else if ( strcmp( token, JSONB_OBJECT_START_TOKEN ) == 0 ) {
+	} else if ( jsonb_token_cmp( token, JSONB_OBJECT_START_TOKEN ) == 0 ) {
 		parser->obj_index += 1;
 
-	     	jsonb_resolve_child_parser(
-			parser,
-			JSONB_PARSER_TYPE_OBJECT);
+        jsonb_resolve_child_parser(
+        parser,
+        JSONB_PARSER_TYPE_OBJECT);
 		return;
-	} else if ( strcmp( token, JSONB_OBJECT_END_TOKEN ) == 0 ) {
+	} else if ( jsonb_token_cmp( token, JSONB_OBJECT_END_TOKEN ) == 0 ) {
 		jsonb_set_code_continue( parser );
 		return;
-	} else if ( strcmp( token, JSONB_COMMA ) == 0 ) {
+	} else if ( jsonb_token_cmp( token, JSONB_COMMA ) == 0 ) {
 		//new value
 		jsonb_reset_parser( parser );
 		jsonb_set_code_continue( parser );
 		return;
-	} else if ( single_end == 0 ) {
-		jsonb_set_code_end( parser );
-		return;
-	} else {
-		printf("Illegal value '%s' at position %d", token, parser->index);
-		jsonb_set_code_error( parser );
-		return;
-	}
+	} 
+
+    if ( jsonb_reserved_tokens( parser ) == JSONB_CONTINUE_READ ) {
+       return;
+     }
+    if ( jsonb_validate_parent_end( parser, token ) == 0 ) {
+       return;
+    }
+    jsonb_parser_error_index(  parser, token );
 }
 
 // parsing for objects
@@ -765,7 +782,7 @@ void jsonb_resolve_parser_token_object(struct parser* parser)
 	char* token = jsonb_get_token(parser);
 	printf("jsonb_resolve_parser_token_object token: %s, index: %d\r\n", token, parser->index);
 
-	if ( strcmp( token, JSONB_QUOTE ) == 0 ) {
+	if ( jsonb_token_cmp( token, JSONB_QUOTE ) == 0 ) {
 		 if ( parser->opened_key.status == -1 ) {
 			jsonb_set_opened(parser, &parser->opened_key, JSONB_OPENED_VALUE);
 			parser->key = "";
@@ -784,34 +801,32 @@ void jsonb_resolve_parser_token_object(struct parser* parser)
 					JSONB_PARSER_TYPE_STR);
 			return;
 		 }
-
-		 jsonb_printf("Illegal quote\r\n");
-		 jsonb_set_code_error(parser);
-	} else if ( strcmp( token, JSONB_COLON ) == 0 ) {
+         jsonb_parser_error_index( parser, token );
+	} else if ( jsonb_token_cmp( token, JSONB_COLON ) == 0 ) {
 		jsonb_set_opened(parser, &parser->opened_value, JSONB_OPENED_VALUE);
 		jsonb_set_code_continue( parser );
 		return;
-	} else if ( strcmp( token, JSONB_WHITESPACE ) == 0 ) {
+	} else if ( jsonb_token_cmp( token, JSONB_WHITESPACE ) == 0 ) {
 		 if ( parser->opened_key.status == 0 ) {
 			jsonb_add_token(&parser->key, token);
 			jsonb_set_code_continue( parser );
 			return;
 		 }
 		 return;
-	} else if ( strcmp( token, JSONB_ARRAY_START_TOKEN ) == 0 ) {
+	} else if ( jsonb_token_cmp( token, JSONB_ARRAY_START_TOKEN ) == 0 ) {
 		if ( parser->opened_value.status == 0 ) {
 		    jsonb_resolve_child_parser(
 			 	parser,
 				JSONB_PARSER_TYPE_ARRAY);
 		    return;
 		}
-	} else if ( strcmp( token, JSONB_ESCAPE ) == 0 ) {
+	} else if ( jsonb_token_cmp( token, JSONB_ESCAPE ) == 0 ) {
 		 jsonb_add_token(&parser->values->current->raw_value, token);
 		 jsonb_set_code_continue( parser );
 		 return;
- 	} else if ( strcmp( token, JSONB_COMMA ) == 0 ) {
+ 	} else if ( jsonb_token_cmp( token, JSONB_COMMA ) == 0 ) {
 		 jsonb_reset_parser(parser);
-	} else if ( strcmp( token, JSONB_OBJECT_START_TOKEN ) == 0 ) {
+	} else if ( jsonb_token_cmp( token, JSONB_OBJECT_START_TOKEN ) == 0 ) {
 		if ( parser->opened_json.status != 0 ) {
 			jsonb_set_opened(parser, &parser->opened_json, JSONB_OPENED_VALUE);
 			parser->obj_index = 0;
@@ -825,46 +840,39 @@ void jsonb_resolve_parser_token_object(struct parser* parser)
 	 		printf("Nested objects not implemented\r\n");
 			jsonb_set_code_error( parser );
 		}
-		printf("Illegal object start token found\r\n");
-		jsonb_set_code_error( parser );
+        jsonb_parser_error_index( parser, token );
 		return;
-	} else if ( strcmp( token, JSONB_OBJECT_END_TOKEN ) == 0 ) {
+    } else if ( jsonb_token_int_cmp( parser, token ) == 0 ) {
+        jsonb_resolve_child_parser(
+        parser,
+        JSONB_PARSER_TYPE_INT);
+        return;
+	} else if ( jsonb_token_end_cmp( token, JSONB_OBJECT_END_TOKEN ) == 0 ) {
 		if ( jsonb_parser_is_root( parser ) != 0 ){
 			jsonb_set_code_end( parser );
 			return;
 		}
 		jsonb_reset_parser( parser );
 		return;
-	} else {
-		  jsonb_printf("jsonb_resolve_parser_token_obj adding to key\r\n");
+    }
+    jsonb_printf("jsonb_resolve_parser_token_obj adding to key\r\n");
 
-		  // any other value
-		  if ( parser->opened_key.status == 0 ) {
-			jsonb_add_token(&parser->key, token );
-			jsonb_set_code_continue( parser );
-			return;
-		  }
-	  	  if ( jsonb_verify_int( token ) == JSONB_CONTINUE_READ ) {
-			jsonb_resolve_child_parser(
-			parser,
-			JSONB_PARSER_TYPE_INT);
-			return;
-		  }
-          if ( jsonb_reserved_tokens( parser ) == JSONB_CONTINUE_READ ) {
-		     return;
-		   }
-			  
-		  jsonb_printf("Illegal value '%s' found at position %d", token, parser->index);
-		  jsonb_set_code_error( parser );
-		  return;
-	}
+    // any other value
+    if ( parser->opened_key.status == 0 ) {
+      jsonb_add_token(&parser->key, token );
+      jsonb_set_code_continue( parser );
+      return;
+    }
+    if ( jsonb_reserved_tokens( parser ) == JSONB_CONTINUE_READ ) {
+       return;
+     }
+    jsonb_parser_error_index(  parser, token );
 }
 
 void jsonb_resolve_parser_token_str(struct parser* parser)
 {
 	char* token = jsonb_get_token(parser);
 	printf("jsonb_resolve_parser_token_str\r\n");
-	int single_end = jsonb_parser_single_end(parser, token);
 	if ( strcmp(token, JSONB_QUOTE ) == 0 ) { 
 		if ( parser->opened_value.status != 0 ) {
 			jsonb_set_opened(parser, &parser->opened_value, JSONB_OPENED_VALUE);
@@ -902,15 +910,18 @@ void jsonb_resolve_parser_token_str(struct parser* parser)
 		}
 		jsonb_set_opened(parser, &parser->opened_escape, JSONB_OPENED_VALUE);
 		return;
-	} else if ( single_end == 0 ) {
-		parser->index -= 1;
-		jsonb_set_code_end( parser );
-		return;
-	} else {
+	} else if (jsonb_token_str_cmp( parser, token ) == 0 ) {
+        jsonb_add_token(&parser->values->current->raw_value, token);
+		jsonb_set_code_continue( parser );
+        return;
+    }
+
+    if ( jsonb_validate_parent_end( parser, token ) == 0 ) {
 		jsonb_add_token(&parser->values->current->raw_value, token);
 		jsonb_set_code_continue( parser );
 		return;
 	}
+    jsonb_parser_error_index(parser, token);
 }
 
 void jsonb_resolve_reserved_keyword(struct parser* parser)
@@ -919,13 +930,12 @@ void jsonb_resolve_reserved_keyword(struct parser* parser)
 
 	char* token = jsonb_get_token(parser);
 	int len = strlen( parser->values->current->raw_value );
-	int single_end = jsonb_parser_single_end(parser, token);
+	int parent_end = jsonb_parser_parent_end(parser, token);
 	if ( strcmp( token, JSONB_COMMA ) == 0 ) {
 		jsonb_set_opened( parser, &parser->opened_comma, JSONB_OPENED_VALUE );
 		jsonb_set_code_end( parser );
 		return;
-	} else if ( single_end == 0 ) {
-		parser->index--;
+	} else if ( parent_end == 0 ) {
 		jsonb_set_code_end( parser );
 		return;
 	} else { 
@@ -941,7 +951,7 @@ void jsonb_resolve_parser_token_null(struct parser* parser)
 
 	char* token = jsonb_get_token(parser);
 	int len = strlen( parser->values->current->raw_value );
-	int single_end = jsonb_parser_single_end(parser, token);
+	int parent_end = jsonb_parser_parent_end(parser, token);
 
 	if ( strcmp( token, "n" ) == 0 ) {
 	 	jsonb_set_opened( parser, &parser->opened_value, JSONB_OPENED_VALUE );
@@ -961,8 +971,7 @@ void jsonb_resolve_parser_token_null(struct parser* parser)
 		jsonb_set_opened( parser, &parser->opened_comma, JSONB_OPENED_VALUE );
 		jsonb_set_code_end( parser );
 		return;
-	} else if ( single_end == 0 ) {
-		parser->index--;
+	} else if ( parent_end == 0 ) {
 		jsonb_set_code_end( parser );
 		return;
 	}
@@ -975,7 +984,7 @@ void jsonb_resolve_parser_token_int(struct parser* parser)
 	printf("jsonb_resolve_parser_token_int %d\r\n", parser->index);
 	char* token = jsonb_get_token(parser);
 	int verify = jsonb_verify_int( token );
-	int single_end = jsonb_parser_single_end(parser, token);
+	int parent_end = jsonb_parser_parent_end(parser, token);
 	if ( verify == JSONB_CONTINUE_READ ) {
 		printf("jsonb_resolve_parser_token_int value %s\r\n", token);	
 
@@ -994,7 +1003,7 @@ void jsonb_resolve_parser_token_int(struct parser* parser)
 	} else if ( strcmp( token, JSONB_WHITESPACE) == 0 ) {
 		jsonb_set_code_end( parser );
 		return;
-	} else if ( single_end == 0 ) {
+	} else if ( parent_end == 0 ) {
 		parser->index -= 1;
 		jsonb_set_code_end( parser );
 
@@ -1159,6 +1168,83 @@ int main_tests(int argc, char* argv[])
 	return 0;
 }
 
+int jsonb_token_cmp(char* token, const char* target)
+{
+    if (token == NULL) {
+         return -1;
+    }
+    return strcmp( token, target );
+}
+
+int jsonb_token_end_cmp(char* token, const char* target)
+{
+    if (token == NULL) {
+        return 0;
+    }
+    return strcmp( token, target );
+}
+
+int jsonb_token_int_cmp(struct parser* parser, char* token)
+{
+    if ( parser->opened_key.status == 0 ) {
+        return -1;
+    }
+    if (token==NULL){
+        return -1;
+    }
+    int result = jsonb_verify_int( token );
+    if ( result == JSONB_CONTINUE_READ ) {
+        return 0;
+    }
+    return -1;
+}
+
+int jsonb_token_str_cmp(struct parser* parser, char* token)
+{
+    if ( parser->opened_key.status == 0 ) {
+        return -1;
+    }
+    if (token==NULL){
+        return -1;
+    }
+    int result = jsonb_verify_str( token );
+    if ( result == JSONB_CONTINUE_READ ) {
+        return 0;
+    }
+    return -1;
+}
+
+
+
+int jsonb_validate_parent_end(struct parser* parser, char* token)
+{
+    if ( jsonb_parser_parent_end(parser, token) != 0 ) {
+       return 0;
+    }
+    if (parser->code == JSONB_END_OF_READ) {
+        return 0;
+    }
+    char* details;
+    sprintf(details, "Illegal end of parser at index %d", parser->index);
+
+    jsonb_parser_error(parser, details);
+    return -1;
+}
+
+void jsonb_parser_error(struct parser* parser, char* details)
+{
+    puts(details);
+    jsonb_set_code_error(parser);
+}
+
+void jsonb_parser_error_index(struct parser* parser, char* token)
+{
+    char* details;
+    sprintf(details, "Illegal value '%s' at position %d", token, parser->index);
+    jsonb_parser_error(parser,details);
+}
+
+     
 void jsonb_printf(const char* fmt, ...)
 {
 #ifdef JSONB_DEBUG
