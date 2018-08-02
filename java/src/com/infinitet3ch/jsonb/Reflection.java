@@ -1,4 +1,4 @@
-package com.jsonb.ExecJar; 
+package com.infinitet3ch.jsonb;
 import java.lang.reflect.*;
 import java.util.Arrays;
 
@@ -7,8 +7,8 @@ public class Reflection {
 	Reflection() {
 		System.loadLibrary("jsonb");
 	}
-	public native Object fromJSONB(String parseStr, Class cls, String[] fields);
-	public native Object[] fromJSONBArray(String parseStr, Class cls, String[] fields);
+	public native Object fromJSONB(String parseStr, Class cls, String[] fields) throws ParserException;
+	public native Object[] fromJSONBArray(String parseStr, Class cls, String[] fields) throws ParserException;
 	public native String toJSONB(Object obj, Class cls, String[][] fields);
 	public native String toJSONBArray(Object[] objs, Class cls, String[][] fields);
 
@@ -29,7 +29,6 @@ public class Reflection {
 			Type type = reflectFields[i].getGenericType();
 			String sig = this.getJNISignature(type);
 			fields[i][0] = reflectFields[ i ].getName();
-			System.out.println("Signature for " + fields[i][0] + " is " + sig);
 			fields[i][1] = sig;
 		}
 		return fields;
@@ -48,12 +47,12 @@ public class Reflection {
 		}
 		return null;
 	}
-	public Object fromJSONB(String parseStr, Class cls)
+	public Object fromJSONB(String parseStr, Class cls) throws ParserException
 	{
 		String[] fields = this.getFields(cls);
 		return this.fromJSONB(parseStr, cls, fields);
 	}
-	public Object[] fromJSONBArray(String parseStr, Class cls)
+	public Object[] fromJSONBArray(String parseStr, Class cls) throws ParserException
 	{
 		String[] fields = this.getFields(cls);
 		return this.fromJSONBArray(parseStr, cls, fields);

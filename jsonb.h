@@ -1,13 +1,14 @@
 #ifndef JSONB_PARSER_H
 #define JSONB_PARSER_H 1
 
-#define JSONB_DEBUG 1
 #define JSONB_END_OF_READ -1 
 #define JSONB_END_OF_READ_ALL -2 
 #define JSONB_CONTINUE_READ 1
 #define JSONB_READ_ERROR 0
 #define JSONB_FLOAT_PRECISION "."
 #define JSONB_OPENED_VALUE 0
+#define JSONB_OPENED_VALUE_UNINITIATED -1
+#define JSONB_OPENED_VALUE_CLOSED -2
 #define JSONB_OPENED_VALUE_READ 1
 #define JSONB_PARSER_TYPE_OBJECT 0
 #define JSONB_PARSER_TYPE_ARRAY 1
@@ -24,10 +25,18 @@
 #define JSONB_JAVA_BOOLEAN_SIGNATURE "Z"
 #define JSONB_VALUE_INT 1
 #define JSONB_VALUE_FLOAT 2
-#define JSONB_VALUE_STRING 3
+#define JSONB_VALUE_STR 3
+#define JSONB_VALUE_BOOLEAN 4
+#define JSONB_VALUE_NULL 5
+#define JSONB_VALUE_OBJECT 6
+#define JSONB_VALUE_ARRAY 7
 #include <jni.h>
 #include <float.h>
 #include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "lexer.h"
 
 struct value_str;
@@ -93,8 +102,10 @@ struct parser {
 	int code;
 	int status;
 	const char* str;
+    char* error;
 	char* key;
 	char* end_token;
+    char* keyword;
 	struct value_array* values;
 	struct parser* parent;
 	struct parser* root;
@@ -117,7 +128,7 @@ struct writer {
 	int obj_index;
 };
 	
-int jsonb_parse_from_str(struct parser** parser, const char* str);
+void jsonb_parse_from_str(struct parser** parser, const char* str);
 void jsonb_printf(const char* fmt, ...);
 void jsonb_write(JNIEnv* env, jobjectArray fields, jobjectArray objs, jclass cls, struct writer* writer);
 void jsonb_write_obj(JNIEnv* env, jobjectArray fields, jobjectArray objs, jclass cls, struct writer* writer);
@@ -131,13 +142,12 @@ void jsonb_init_writer(struct writer* writer);
 void jsonb_evaluate_determined_type(struct parser* parser);
 void jsonb_init_opened_token(struct opened_token* opened);
 void jsonb_resolve_parser(struct parser* parser);
-void jsonb_resolve_child_parser(struct parser* parent, int type);
+void jsonb_resolve_child_parser(struct parser* parent, int type, char* keyword);
 void jsonb_resolve_parser_token(struct parser* parser);
 void jsonb_resolve_parser_token_object(struct parser* parser);
 void jsonb_resolve_parser_token_array(struct parser* parser);
 void jsonb_resolve_parser_token_str(struct parser* parser);
 void jsonb_resolve_parser_token_int(struct parser* parser);
-void jsonb_resolve_parser_token_null(struct parser* parser);
 void jsonb_resolve_reserved_keyword(struct parser* parser);
 void jsonb_add_token(char** context, char* token);
 void jsonb_write_null(char** context);
@@ -163,11 +173,12 @@ int jsonb_Verify_int(char* token);
 int jsonb_parser_is_root(struct parser* parser);
 struct parser* jsonb_parser_get_root(struct parser* parser);
 int jsonb_parser_parent_end(struct parser* parser, char* token);
+int jsonb_parent_end(struct parser* parser, char* token);
 
 void jsonb_set_opened_status(struct parser* parser);
 void jsonb_set_type_validated(struct parser* parser, int value);
 void jsonb_set_code_continue(struct parser* parser);
-void jsonb_set_code_error(struct parser* parser); 
+void jsonb_set_code_error(struct parser* parser, char* details); 
 void jsonb_set_code_end(struct parser* parser);
 void jsonb_set_code_end_all(struct parser* parser);
 void jsonb_set_value_from_child(struct parser* parser, struct parser* child);
@@ -188,7 +199,6 @@ void jsonb_debug_key_value(struct parser* parser, struct value_dynamic* value);
 void jsonb_debug_value(struct parser* parser, struct value_dynamic* value);
 jobject jsonb_create_java_object_from_class(JNIEnv* env, jclass cls);
 jobjectArray jsonb_reset_java_array(JNIEnv* env, jclass target, jobjectArray* current);
-void jsonb_generic_parse(struct parser** parser, const char* str);
 int jsonb_token_cmp(char* token, const char* target);
 int jsonb_token_end_cmp(char* token, const char* target);
 int jsonb_token_int_cmp(struct parser* parser, char* token);
@@ -196,6 +206,14 @@ int jsonb_token_str_cmp(struct parser* parser, char* token);
 int jsonb_validate_parent_end(struct parser* parser, char* token);
 void jsonb_parser_error(struct parser* parser, char* details);
 void jsonb_parser_error_index(struct parser* parser, char* token);
+void jsonb_parser_str_escape(struct parser* parser, char* token);
+void jsonb_parser_str_add_char(struct parser* parser, char* token);
+void jsonb_comma(struct parser* parser, char* token);
+int jsonb_comma_child(struct parser* parser, char* token);
+void jsonb_copy_llist(struct parser* parser, struct value_dynamic** ptr1, struct value_object* obj);
+void jsonb_copy_llist_value(struct value_dynamic* src, struct value_dynamic* dst);
+void jsonb_parser_index_inc(struct parser* parser, int inc_val);
+void jsonb_parser_index_dec(struct parser* parser, int dec_val);
 
 jstring jsonb_generic_write_obj(JNIEnv* env, jobject target, jclass cls, jobjectArray fields);
 jstring jsonb_generic_write(JNIEnv* env, jobjectArray target, jclass cls, jobjectArray fields);

@@ -13,6 +13,6 @@
 #define JSONB_COLON ":"
 #define JSONB_NULL "null"
 #define JSONB_TRUE "true"
-#define JSONB_FALSE "true"
+#define JSONB_FALSE "false"
 
 #endif

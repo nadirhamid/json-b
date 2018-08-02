@@ -1,11 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "./jsonb.h"
 
 
 int jsonb_verify_opened_json(struct parser* parser, char* token)
 {
+    jsonb_printf("jsonb_verify_opened_json index: %d, token: %s\r\n", parser->index, token);
   	if ( parser->type_validated == 0 ) {
 	    jsonb_set_code_continue(parser);
 	    return JSONB_PARSER_TYPE_VALIDATED;
@@ -18,7 +16,7 @@ int jsonb_verify_opened_json(struct parser* parser, char* token)
 	type_object = jsonb_check_type_or_unknown(parser,
 		 token,
 		 JSONB_OBJECT_START_TOKEN,
-		 JSONB_PARSER_TYPE_ARRAY);
+		 JSONB_PARSER_TYPE_OBJECT);
 	type_str = jsonb_check_type_or_unknown(parser,
 		 token,
 		 JSONB_QUOTE,
@@ -41,17 +39,13 @@ int jsonb_verify_opened_json(struct parser* parser, char* token)
 	     jsonb_set_code_continue( parser );
 	     return JSONB_PARSER_TYPE_INT;
 	}
-
- 	printf("JSON must begin with %s or %s\r\n",
-		JSONB_ARRAY_START_TOKEN,
-		JSONB_OBJECT_START_TOKEN);
-	jsonb_set_code_error( parser );
 	return -1;
 }
 
 
 int jsonb_check_type_or_unknown(struct parser* parser, char* token, char* expects, int type)
 {
+    jsonb_printf("jsonb_check_type_or_unknown index: %d, token: %s\r\n", parser->index, token);
  	if ( strcmp(token, expects) == 0 
 	   && 
 	     ( parser->type == type || parser->type == JSONB_PARSER_TYPE_UNKNOWN)
@@ -80,10 +74,13 @@ struct parser* jsonb_parser_get_root(struct parser* parser)
 int jsonb_parser_parent_end(struct parser* parser, char* token)
 {
 	int root;
-	struct parser* parent = parser->parent;
+    jsonb_printf("jsonb_parser_parent_end\r\n");
 	if ( parser->root == NULL ){
 		return -1;
 	}
+	struct parser* parent = parser->parent;
+    jsonb_printf("jsonb_parser_parent_end parent type: %d\r\n", parent->type);
+
 	if ( parent->type == JSONB_PARSER_TYPE_OBJECT && strcmp( token, JSONB_OBJECT_END_TOKEN ) == 0) 
 	{
 		return 0;
@@ -128,25 +125,34 @@ int jsonb_verify_str(char* token)
     if( isalpha( token_int ) ) {
          return JSONB_CONTINUE_READ;
     }
+    if ( isdigit( token_int ) ) {
+        return JSONB_CONTINUE_READ;
+    }
+    if ( strcmp( token, JSONB_WHITESPACE ) == 0 ) {
+        return JSONB_CONTINUE_READ;
+    }
     return JSONB_READ_ERROR;
 }
 
 int jsonb_reserved_tokens(struct parser* parser)
 {
+    jsonb_printf("jsonb_reserved_tokens\r\n");
     int status;
+
     status = jsonb_verify_reserved_token( parser, JSONB_NULL, 4 );
 
     if ( status == JSONB_CONTINUE_READ ) {
-      jsonb_resolve_child_parser(parser, JSONB_PARSER_TYPE_NULL);
+      jsonb_resolve_child_parser(parser, JSONB_PARSER_TYPE_NULL, JSONB_NULL);
       return status;
    }
    status = jsonb_verify_reserved_token( parser, JSONB_TRUE, 4 );
    if ( status == JSONB_CONTINUE_READ ) {
-     jsonb_resolve_child_parser(parser, JSONB_PARSER_TYPE_BOOLEAN);
+     jsonb_resolve_child_parser(parser, JSONB_PARSER_TYPE_BOOLEAN, JSONB_TRUE);
      return status;
    }
    status = jsonb_verify_reserved_token( parser, JSONB_FALSE, 5 );
    if ( status == JSONB_CONTINUE_READ ) {
+     jsonb_resolve_child_parser(parser, JSONB_PARSER_TYPE_BOOLEAN, JSONB_FALSE);
      return status;
    }
    return JSONB_READ_ERROR;
@@ -155,7 +161,7 @@ int jsonb_reserved_tokens(struct parser* parser)
 int jsonb_verify_null(struct parser* parser)
 {
 	char* val = "";
-	printf("jsonb_verify_null\r\n");
+    jsonb_printf("jsonb_verify_null\r\n");
 	int idx;
 	idx = parser->index;
 	jsonb_add_token(&val, jsonb_get_token_index(parser, &idx));
@@ -173,11 +179,20 @@ int jsonb_verify_null(struct parser* parser)
 
 int jsonb_verify_reserved_token(struct parser* parser, char* token, int len_read)
 {
-	jsonb_printf("jsonb_verify_reserved_token token %s\r\n", token);
+	int idx;
+    const char* str;
+	jsonb_parser_get_str( parser, &str );
+
+    int len = strlen( str );
+    idx = parser->index;
+    int left = ( len - ( idx + 1 ) );
 	char* val = "";
     char* token_idx;
-	int idx;
-    idx = parser->index;
+
+    jsonb_printf("jsonb_verify_reserved_token reading left: %d\r\n", left);
+    if (left<len_read) {
+        return JSONB_READ_ERROR;
+    }
     while ( ( idx - parser->index ) != len_read ) {
         token_idx = jsonb_get_token_index(parser, &idx);
         jsonb_add_token(&val, token_idx);
@@ -194,18 +209,18 @@ void jsonb_debug_parser(struct parser* parser)
 {
 	const char* str;
 	jsonb_parser_get_str( parser, &str );
-	printf("PARSER: OPENED_JSON %d\r\n", parser->opened_json.status);
-	printf("PARSER: OPENED_KEY %d\r\n", parser->opened_key.status);
- 	printf("PARSER: OPENED_COLON %d\r\n", parser->opened_colon.status);
- 	printf("PARSER: OPENED_COMMA %d\r\n", parser->opened_comma.status);
-	printf("PARSER: KEY %s\r\n", parser->key);
-	printf("PARSER: RAW VALUE %s\r\n", parser->values->current->raw_value);
-	printf("PARSER: CODE %d\r\n", parser->code);
-	printf("PARSER: STATUS %d\r\n", parser->status);
-	printf("PARSER: INDEX %d\r\n", parser->index);
-	printf("PARSER: TYPE VALIDATED %s\r\n", parser->type_validated);
-	printf("PARSER: TYPE %d\r\n", parser->type);
-	printf("PARSER: STR %s\r\n", str);
+    jsonb_printf("PARSER: OPENED_JSON %d\r\n", parser->opened_json.status);
+    jsonb_printf("PARSER: OPENED_KEY %d\r\n", parser->opened_key.status);
+    jsonb_printf("PARSER: OPENED_COLON %d\r\n", parser->opened_colon.status);
+    jsonb_printf("PARSER: OPENED_COMMA %d\r\n", parser->opened_comma.status);
+    jsonb_printf("PARSER: KEY %s\r\n", parser->key);
+    jsonb_printf("PARSER: RAW VALUE %s\r\n", parser->values->current->raw_value);
+    jsonb_printf("PARSER: CODE %d\r\n", parser->code);
+    jsonb_printf("PARSER: STATUS %d\r\n", parser->status);
+    jsonb_printf("PARSER: INDEX %d\r\n", parser->index);
+    jsonb_printf("PARSER: TYPE VALIDATED %s\r\n", parser->type_validated);
+    jsonb_printf("PARSER: TYPE %d\r\n", parser->type);
+    jsonb_printf("PARSER: STR %s\r\n", str);
 }
 void jsonb_debug_parser_value(struct parser* parser, struct value_dynamic* value)
 {
@@ -214,16 +229,16 @@ void jsonb_debug_parser_value(struct parser* parser, struct value_dynamic* value
 	if ( jsonb_parser_is_root( parser ) != 0 && parser->parent->type == JSONB_PARSER_TYPE_OBJECT ) {
 	 	key = parser->parent->key;
 	}
-	printf("PARSER VALUE: KEY %s\r\n", key);
-	printf("PARSER VALUE: %s\r\n", value_str );
+    jsonb_printf("PARSER VALUE: KEY %s\r\n", key);
+    jsonb_printf("PARSER VALUE: %s\r\n", value_str );
 }
 
 void jsonb_debug_array(struct parser* parser, struct value_array*  array)
 {
-	printf("jsonb_debug_array\r\n");
+    jsonb_printf("jsonb_debug_array\r\n");
 	struct value_dynamic* ptr;
 	ptr = array->head;
-	printf("jsonb_debug_array head value %s\r\n", array->current->raw_value);
+    jsonb_printf("jsonb_debug_array head value %s\r\n", ptr->raw_value);
 	while ( ptr != NULL ) {
 		jsonb_debug_value( parser, ptr );
 		ptr = ptr->next;
@@ -233,10 +248,10 @@ void jsonb_debug_array(struct parser* parser, struct value_array*  array)
 
 void jsonb_free_array(struct parser* parser, struct value_array*  array)
 {
-	printf("jsonb_free_array\r\n");
+    jsonb_printf("jsonb_free_array\r\n");
 	struct value_dynamic** ptr;
 	ptr = &array->head;
-	printf("jsonb_debug_array head value %s\r\n", array->current->raw_value);
+    jsonb_printf("jsonb_free_array head value %s\r\n", (*ptr)->raw_value);
 	while ( *ptr != NULL ) {
 		free( *ptr );
 		ptr = &((*ptr)->next);
@@ -247,13 +262,34 @@ void jsonb_free_array(struct parser* parser, struct value_array*  array)
 
 void jsonb_debug_value(struct parser* parser, struct value_dynamic* value)
 {
-	printf("jsonb_debug_value\r\n");
-	printf("key: %s value: %s\r\n", value->key, value->raw_value);
+    jsonb_printf("jsonb_debug_value key: %s\r\n", value->key);
+    switch ( value->type ) {
+        case JSONB_PARSER_TYPE_INT:
+            jsonb_printf("key: %s int value: %d\r\n", value->key, value->int_value);
+        break;
+        case JSONB_PARSER_TYPE_FLOAT:
+            jsonb_printf("key: %s int value: %.6f\r\n", value->key, value->float_value);
+        break;
+        case JSONB_PARSER_TYPE_STR:
+            jsonb_printf("key: %s string value: %s\r\n", value->key, value->str_value);
+        break;
+        case JSONB_PARSER_TYPE_BOOLEAN:
+            jsonb_printf("key: %s boolean value: %s\r\n", value->key, value->jboolean_value);
+        break;
+        case JSONB_PARSER_TYPE_NULL:
+            jsonb_printf("key: %s is NULL \r\n", value->key);
+        break;
+        case JSONB_PARSER_TYPE_ARRAY:
+        break;
+        case JSONB_PARSER_TYPE_OBJECT:
+        break;
+    }
+
 }
 void jsonb_debug_key_value(struct parser* parser, struct value_dynamic* value)
 {
-	printf("jsonb_debug_key_value\r\n");
-	printf("key: %s, value: %s\r\n", parser->key, value->raw_value);
+    jsonb_printf("jsonb_debug_key_value\r\n");
+    jsonb_printf("key: %s, value: %s\r\n", parser->key, value->raw_value);
 }
 
 
@@ -266,9 +302,11 @@ void jsonb_set_code_continue(struct parser* parser)
 	parser->code = JSONB_CONTINUE_READ;
 }
 
-void jsonb_set_code_error(struct parser* parser)
+void jsonb_set_code_error(struct parser* parser, char* details)
 {
+    jsonb_printf("jsonb_set_code_error called: %s\r\n", details);
 	parser->code = JSONB_READ_ERROR;
+    parser->error = details;
 }
 
 void jsonb_set_code_end(struct parser* parser)
@@ -284,23 +322,23 @@ void jsonb_set_code_end_all(struct parser* parser)
 
 void jsonb_set_value_from_child(struct parser* parser, struct parser* child)
 {
-	int index = child->index;
+    jsonb_printf("jsonb_set_value_from_child parser type %d\r\n", child->type);
 	parser->index = child->index;
-	char* set_value;
-	jsonb_parser_value_next( parser, child );
+    jsonb_parser_value_next( parser, child );
 	if ( child->type == JSONB_PARSER_TYPE_ARRAY ) {
-		jsonb_debug_array(parser, child->values);
+		//jsonb_debug_array(parser, child->values);
+	    jsonb_reset_parser(parser);
 	} else {
 		jsonb_debug_value(parser, child->values->current);
+	    jsonb_reset_parser(parser);
 	}
-	jsonb_reset_parser(parser);
 
 }
 
 void jsonb_set_opened_status(struct parser* parser)
 {
 	parser->opened_json.status = JSONB_OPENED_VALUE;
-	parser->index += 1;
+	jsonb_parser_index_inc(parser, 1);
 }
 
 void jsonb_set_type_validated(struct parser* parser, int value)
@@ -327,9 +365,72 @@ void jsonb_init_opened_token(struct opened_token* opened)
 	opened->index = -1;
 }
 
+void jsonb_copy_llist_value(struct value_dynamic* src, struct value_dynamic* dst)
+{
+    dst->key = strdup( src->key );
+    dst->type = src->type;
+    dst->next = NULL;
+    if ( dst->type == JSONB_PARSER_TYPE_STR ) {
+        dst->str_value = strdup( src->str_value );
+    } else if ( dst->type == JSONB_PARSER_TYPE_INT ) {
+        dst->int_value = src->int_value;
+    } else if ( dst->type == JSONB_PARSER_TYPE_FLOAT ) {
+        dst->float_value = src->float_value;
+    } else if ( dst->type == JSONB_PARSER_TYPE_NULL ) {
+    } else if ( dst->type == JSONB_PARSER_TYPE_BOOLEAN ) {
+        dst->jboolean_value = src->jboolean_value;
+    } else if ( dst->type == JSONB_PARSER_TYPE_ARRAY ) {
+    } else if ( dst->type == JSONB_PARSER_TYPE_OBJECT ) {
+    }
+}
+
+void jsonb_copy_llist(struct parser* parser, struct value_dynamic** ptr1, struct value_object* obj)
+{
+    struct value_dynamic* ptr2;
+    struct value_dynamic* ptr3;
+    ptr2 = (struct value_dynamic*) malloc(sizeof(struct value_dynamic));
+    jsonb_copy_llist_value( *ptr1, ptr2 );
+    ptr2->next = NULL;
+    obj->values->head = ptr2;
+    parser->values->current->object_value = obj;
+    parser->values->current->type = JSONB_PARSER_TYPE_OBJECT;
+
+    ptr1 = &((*ptr1)->next);
+    while ( *ptr1 != NULL ) {
+       ptr3 = (struct value_dynamic*) malloc(sizeof(struct value_dynamic));
+       jsonb_copy_llist_value( *ptr1, ptr3 );
+       ptr3->next = NULL;
+       ptr2->next = ptr3;
+       ptr2 = ptr3;
+       ptr1 = &((*ptr1)->next);
+    }
+
+}
+
+void jsonb_comma(struct parser* parser, char* token)
+{
+    if (parser->opened_comma.status == JSONB_OPENED_VALUE) {
+        jsonb_parser_error_index(parser, token);
+        return;
+    }
+    jsonb_set_opened( parser, &parser->opened_comma, JSONB_OPENED_VALUE );
+    jsonb_reset_parser(parser);
+}
+
+int jsonb_comma_child(struct parser* parser, char* token)
+{
+    if ( parser->opened_value.status == JSONB_OPENED_VALUE_CLOSED ) {
+        jsonb_set_opened( parser, &parser->opened_comma, JSONB_OPENED_VALUE );
+        jsonb_set_code_end( parser );
+        jsonb_parser_index_dec( parser, 1 );
+        return 0;
+    }
+    return -1;
+}
+
 void jsonb_cleanup_parser(struct parser* parser)
 {
-	printf("jsonb_cleanup_parser \r\n");
+    jsonb_printf("jsonb_cleanup_parser \r\n");
 	jsonb_free_array( parser, parser->values );
 	free( parser );
 }
@@ -345,6 +446,7 @@ void jsonb_reset_parser(struct parser* parser)
 
 void jsonb_init_parser(struct parser* parser, int index, int type)
 {
+    jsonb_printf("jsonb_init_parser index: %d, type: %d\r\n", index, type);
 	jsonb_init_opened_token(&parser->opened_key);
 	jsonb_init_opened_token(&parser->opened_colon);
 	jsonb_init_opened_token(&parser->opened_comma);
@@ -364,6 +466,7 @@ void jsonb_init_parser(struct parser* parser, int index, int type)
 	parser->values->current->key = NULL;
 	parser->values->len = 1;
 	parser->values->head = parser->values->current;
+    parser->obj_index = 0;
 
 	jsonb_evaluate_determined_type( parser );
 }
@@ -377,6 +480,7 @@ void jsonb_init_writer(struct writer* writer)
 
 void jsonb_evaluate_determined_type( struct parser* parser )
 {
+    jsonb_printf("jsonb_evaluate_determined_type index: %d\r\n", parser->index);
 	char* token;
 
 	token = jsonb_get_token( parser );
@@ -384,7 +488,11 @@ void jsonb_evaluate_determined_type( struct parser* parser )
 	if ( evaluated == JSONB_PARSER_TYPE_VALIDATED ) {
 		return;
 	} else if ( evaluated == -1 ) { // error 
-		jsonb_set_code_error(parser);
+        char* details = (char*)malloc(sizeof(char)*1024);
+        sprintf(details, "JSON must begin with %s or %s\r\n",
+            JSONB_ARRAY_START_TOKEN,
+            JSONB_OBJECT_START_TOKEN);
+        jsonb_set_code_error( parser, details );
 		return;
 	}
 	parser->type = evaluated;
@@ -406,18 +514,19 @@ void jsonb_parser_value_next( struct parser* parser, struct parser* child)
 	struct value_dynamic* new_value;
 	// set the key on the value
 	jsonb_store_value(parser, child);
+    jsonb_printf("jsonb_parser_value_next called parser type: %d\r\n", parser->type);
 	// cast the current value to java types TODO
-	if ( child->opened_comma.status == 0 ) {	
-		new_value = (struct value_dynamic*) malloc(sizeof(struct value_dynamic));
-		new_value->raw_value = "";
-		new_value->next = NULL;
-		new_value->key = NULL;
+    if ( child->opened_comma.status == 0 ) {
+        new_value = (struct value_dynamic*) malloc(sizeof(struct value_dynamic));
+        new_value->raw_value = "";
+        new_value->next = NULL;
+        new_value->key = NULL;
 
-		parser->values->current->next = new_value;
-		parser->values->current = new_value;
-		parser->values->len += 1;
-	}
-
+        parser->values->current->next = new_value;
+        parser->values->current = new_value;
+        parser->values->len += 1;
+    }
+   jsonb_printf("jsonb_parser_value_next length of values: %d, parser type: %d\r\n", parser->values->len, parser->type);
 }
 void jsonb_add_token(char** context, char* token)
 {
@@ -437,43 +546,47 @@ void jsonb_write_null(char** context)
 }
 void jsonb_store_value( struct parser* parent, struct parser* child)
 {
-	printf("jsonb_store_value\r\n");
+    jsonb_printf("jsonb_store_value\r\n");
 	struct parser* root = jsonb_parser_get_root(parent);
 	struct value_dynamic* current = child->values->current;
 	char* value_str;
 	// store the key of the current item
 	parent->values->current->key = strdup( parent->key );
-	printf("parent key: %s, type: %d, child parser value is %s, type: %d\r\n", parent->key, parent->type, current->raw_value, child->type);
+    jsonb_printf("parent key: %s, type: %d, child parser value is %s, type: %d\r\n", parent->key, parent->type, current->raw_value, child->type);
 	parent->values->current->type = child->type;
 	if ( child->type == JSONB_PARSER_TYPE_STR ) {
-		printf("casting to string\r\n");
-		const char* val = (const char*) current->raw_value;
+	    jsonb_printf("casting to string\r\n");
 		parent->values->current->str_value = strdup( current->raw_value );
+	    free( current->raw_value );
 	} else if ( child->type == JSONB_PARSER_TYPE_INT ) {
-		printf("casting to int\r\n");
+	    jsonb_printf("casting to int\r\n");
 		int val = atoi( current->raw_value );
 		parent->values->current->int_value = val;
+	    free( current->raw_value );
 	} else if ( child->type == JSONB_PARSER_TYPE_FLOAT ) {
-		printf("casting to float\r\n");
+	    jsonb_printf("casting to float\r\n");
 		float val = atof( current->raw_value );
 		parent->values->current->float_value = val;
+	    free( current->raw_value );
 	} else if ( child->type == JSONB_PARSER_TYPE_ARRAY ) {
-		printf("Cast found array no casting needed\r\n");
+	    jsonb_printf("Cast found array no casting needed\r\n");
 		parent->values->current->array_value = child->values;
 	} else if ( child->type == JSONB_PARSER_TYPE_OBJECT ) {
-		printf("Cast found object no casting needed\r\n");
-		parent->values->current->object_value = (struct  value_object*) malloc(sizeof( struct value_object ) );
-		parent->values->current->object_value->values = child->values;
+	    jsonb_printf("Cast found object no casting needed\r\n");
+        struct value_object* obj = (struct value_object*) malloc(sizeof(struct value_object));
+	    obj->values = (struct value_array*) malloc(sizeof(struct value_array));
+        struct value_dynamic** ptr1 = &(child->values->head);
+        parent->values->current->object_value = obj;
+        parent->values->current->type = JSONB_PARSER_TYPE_OBJECT;
+        jsonb_copy_llist( parent, ptr1, obj );
 	} else if ( child->type == JSONB_PARSER_TYPE_NULL ) {
-		printf("Cast found null\r\n");
+	    jsonb_printf("Cast found null\r\n");
+	    free( current->raw_value );
 	} else if ( child->type == JSONB_PARSER_TYPE_BOOLEAN ) {
-		printf("Cast found boolean\r\n");
+	    jsonb_printf("Cast found boolean\r\n");
         jsonb_store_jboolean( current->raw_value, parent->values->current );
+	    free( current->raw_value );
     }
-
-	printf("Setting raw value to child\r\n");
-	//parent->values->current->raw_value = strdup( current->raw_value );
-	free( current->raw_value );
 }
 
 void jsonb_store_jboolean(char* raw, struct value_dynamic* value)
@@ -522,7 +635,7 @@ char* jsonb_get_token(struct parser* parser)
 
 void jsonb_resolve_parser( struct parser* parser)
 {
-	printf("jsonb_resolve_parser type %d\r\n", parser->type);
+    jsonb_printf("jsonb_resolve_parser type %d\r\n", parser->type);
 	const char* str;
 	jsonb_parser_get_str( parser, &str );
 	int size = strlen( str );
@@ -540,21 +653,23 @@ void jsonb_resolve_parser( struct parser* parser)
 
 		if ( parser->code == JSONB_END_OF_READ ) {
 			parser->status = 0;
-			printf("reached end of read. status is %d\r\n", parser->status);
 			break;
 		}
-		parser->index += parser->code;
+		jsonb_printf("parser type: %d, index is: %d, code is: %d, status: %d\r\n", parser->type, parser->index, parser->code, parser->status);
+		jsonb_parser_index_inc(parser, parser->code);
 	} 
 }
 
-void jsonb_resolve_child_parser(struct parser* parent, int type)
+void jsonb_resolve_child_parser(struct parser* parent, int type, char* keyword)
 {
-	printf("jsonb_resolve_child_parser type %d index %d\r\n", type, parent->index);
+    jsonb_printf("jsonb_resolve_child_parser type %d index %d\r\n", type, parent->index);
+	jsonb_set_opened(parent, &parent->opened_comma, -1);
 	int status, parent_is_root;
 	size_t sz = sizeof(struct parser);
 	struct parser* parser = (struct parser*) malloc(sz* ( 1024 * 1024 ));
 	parser->parent = parent;
 	parser->root = parent;
+    parser->keyword = keyword;
 	parent_is_root = jsonb_parser_is_root( parent );
 	if ( parent_is_root != 0 ) {
 		parser->root = parent->root;
@@ -582,16 +697,17 @@ void jsonb_resolve_child_parser(struct parser* parent, int type)
 	//parser->key = strdup(parent->key);
 	jsonb_resolve_parser(parser);
 	if ( parser->code != JSONB_END_OF_READ ) {
-		jsonb_set_code_error( parent );
+		jsonb_set_code_error( parent, parser->error );
+        return;
 	}
 	jsonb_set_code_continue( parent );
 	jsonb_set_value_from_child(parent, parser);
-	jsonb_cleanup_parser(parser);
-
+	jsonb_cleanup_parser( parser );
 }
 
 void jsonb_resolve_parser_token(struct parser* parser)
 {
+    jsonb_printf("jsonb_resolve_parser_token type %d\r\n", parser->type);
 	if ( parser->type == JSONB_PARSER_TYPE_ARRAY ) {
 		jsonb_resolve_parser_token_array( parser );
 	} else if ( parser->type == JSONB_PARSER_TYPE_OBJECT ) {
@@ -664,34 +780,34 @@ void jsonb_resolve_writer_object(struct writer* writer)
 		jsonb_add_token( output, (char*) key );
 		jsonb_add_token( output, "\"" );
 		jsonb_add_token( output, ":" );
-		printf("found type %s\r\n", type_c);
+	    jsonb_printf("found type %s\r\n", type_c);
 
 		if ( strcmp( type_c, JSONB_JAVA_STRING_SIGNATURE ) == 0 ) {
-			printf("jsonb_resolve_writer_obj writing string\r\n");
+	    	jsonb_printf("jsonb_resolve_writer_obj writing string\r\n");
 			val_field = (*env)->GetFieldID(env, cls, key, "Ljava/lang/String;");
 			strfield = (jstring) (*env)->GetObjectField(env, obj, val_field);
 			jsonb_writer_validate_null_str( writer, output, strfield );
 		} else if ( strcmp( type_c, JSONB_JAVA_INT_SIGNATURE ) == 0 ) { 
-			printf("jsonb_resolve_writer_obj writing int\r\n");
+		    jsonb_printf("jsonb_resolve_writer_obj writing int\r\n");
 			val_field = (*env)->GetFieldID(env, cls, key, "I");
 			char* int_chr;
 			jint val = (*env)->GetIntField(env, obj, val_field);
 			jsonb_writer_validate_null_int( writer, output, val );
 		} else if ( strcmp( type_c, JSONB_JAVA_FLOAT_SIGNATURE ) == 0 ) {
-			printf("jsonb_resolve_writer_obj writing float\r\n");
+		    jsonb_printf("jsonb_resolve_writer_obj writing float\r\n");
 			val_field = (*env)->GetFieldID(env, cls, key, "F");
 			char* float_chr;
 			jfloat val = (*env)->GetFloatField(env, obj, val_field);
 			jsonb_writer_validate_null_float( writer, output, val );
         } else if ( strcmp( type_c, JSONB_JAVA_BOOLEAN_SIGNATURE ) == 0 ) {
-			printf("jsonb_resolve_writer_obj writing boolean\r\n");
+		    jsonb_printf("jsonb_resolve_writer_obj writing boolean\r\n");
 			val_field = (*env)->GetFieldID(env, cls, key, "Z");
 			jboolean val;
 			val = (*env)->GetBooleanField(env, obj, val_field);
 			jsonb_writer_validate_boolean( writer, output, val );
 
 		} else { // type not supported
-			printf("jsonb_resolve_writer_obj type not supported\r\n");
+		    jsonb_printf("jsonb_resolve_writer_obj type not supported\r\n");
 			jsonb_write_null(output);
 		}
 				
@@ -720,18 +836,19 @@ void jsonb_resolve_writer_object(struct writer* writer)
 void jsonb_resolve_parser_token_array(struct parser* parser)
 {
 	char* token = jsonb_get_token(parser);
-	printf("jsonb_resolve_parser_token_array vtoken %s\r\n", token);
-	int parent_end = jsonb_parser_parent_end(parser, token);
+    jsonb_printf("jsonb_resolve_parser_token_array vtoken %s, object index: %d\r\n", token, parser->obj_index);
  	if ( jsonb_token_cmp( token, JSONB_QUOTE ) == 0 ) { // has to be string
-		printf("Parsing str value\r\n");
+         jsonb_printf("Parsing str value\r\n");
 		jsonb_resolve_child_parser(
 				parser,
-				JSONB_PARSER_TYPE_STR);
+				JSONB_PARSER_TYPE_STR,
+                NULL);
 		return;
 	} else if ( jsonb_token_int_cmp( parser, token ) == 0 ) {
 		jsonb_resolve_child_parser(
 		parser,
-		JSONB_PARSER_TYPE_INT);
+		JSONB_PARSER_TYPE_INT,
+        NULL);
 		return;
 	} else if ( jsonb_token_cmp( token, JSONB_WHITESPACE )  == 0 ) {
 		jsonb_set_code_continue( parser );
@@ -747,30 +864,30 @@ void jsonb_resolve_parser_token_array(struct parser* parser)
 		jsonb_set_code_continue( parser );
 		return;
 	} else if ( jsonb_token_end_cmp( token, JSONB_ARRAY_END_TOKEN ) == 0) {
-		jsonb_reset_parser( parser );
-		jsonb_set_code_end( parser );
-		return;
+        jsonb_set_code_end( parser );
+        return;
 	} else if ( jsonb_token_cmp( token, JSONB_OBJECT_START_TOKEN ) == 0 ) {
+        jsonb_printf("jsonb_resolve_parser_token_array creating object at index %d\r\n", parser->obj_index);
 		parser->obj_index += 1;
 
         jsonb_resolve_child_parser(
         parser,
-        JSONB_PARSER_TYPE_OBJECT);
-		return;
-	} else if ( jsonb_token_cmp( token, JSONB_OBJECT_END_TOKEN ) == 0 ) {
-		jsonb_set_code_continue( parser );
+        JSONB_PARSER_TYPE_OBJECT,
+        NULL);
 		return;
 	} else if ( jsonb_token_cmp( token, JSONB_COMMA ) == 0 ) {
-		//new value
-		jsonb_reset_parser( parser );
-		jsonb_set_code_continue( parser );
-		return;
+         if ( jsonb_comma_child( parser, token ) == 0 ) {
+             return;
+         }
+         jsonb_set_opened( parser, &parser->opened_comma, JSONB_OPENED_VALUE );
+         jsonb_reset_parser( parser );
+         jsonb_set_code_continue( parser );
+         return;
 	} 
-
     if ( jsonb_reserved_tokens( parser ) == JSONB_CONTINUE_READ ) {
        return;
      }
-    if ( jsonb_validate_parent_end( parser, token ) == 0 ) {
+    if ( jsonb_parent_end( parser, token ) == 0 ) {
        return;
     }
     jsonb_parser_error_index(  parser, token );
@@ -780,7 +897,12 @@ void jsonb_resolve_parser_token_array(struct parser* parser)
 void jsonb_resolve_parser_token_object(struct parser* parser)
 {
 	char* token = jsonb_get_token(parser);
-	printf("jsonb_resolve_parser_token_object token: %s, index: %d\r\n", token, parser->index);
+    int parent_end = jsonb_parser_parent_end(parser, token);
+    jsonb_printf("jsonb_resolve_parser_token_object token: %s, index: %d, opened_value %d, opened_key %d opened_comma %d, parent_end %d\r\n", token, parser->index, parser->opened_value.status, parser->opened_key.status, parser->opened_comma.status, parent_end);
+
+    if ( jsonb_parent_end( parser, token ) == 0 ) {
+        return;
+    }
 
 	if ( jsonb_token_cmp( token, JSONB_QUOTE ) == 0 ) {
 		 if ( parser->opened_key.status == -1 ) {
@@ -795,14 +917,19 @@ void jsonb_resolve_parser_token_object(struct parser* parser)
 			return;
 		 }
 		 if (parser->opened_value.status == 0) { // new str value
-			printf("Parsing str value\r\n");
+		    jsonb_printf("Parsing str value\r\n");
 			jsonb_resolve_child_parser(
 					parser,
-					JSONB_PARSER_TYPE_STR);
+					JSONB_PARSER_TYPE_STR,
+                    NULL);
 			return;
 		 }
          jsonb_parser_error_index( parser, token );
 	} else if ( jsonb_token_cmp( token, JSONB_COLON ) == 0 ) {
+        if (parser->opened_value.status != -1) {
+            jsonb_parser_error_index( parser, token );
+            return;
+        }
 		jsonb_set_opened(parser, &parser->opened_value, JSONB_OPENED_VALUE);
 		jsonb_set_code_continue( parser );
 		return;
@@ -817,7 +944,8 @@ void jsonb_resolve_parser_token_object(struct parser* parser)
 		if ( parser->opened_value.status == 0 ) {
 		    jsonb_resolve_child_parser(
 			 	parser,
-				JSONB_PARSER_TYPE_ARRAY);
+				JSONB_PARSER_TYPE_ARRAY,
+                NULL);
 		    return;
 		}
 	} else if ( jsonb_token_cmp( token, JSONB_ESCAPE ) == 0 ) {
@@ -825,7 +953,13 @@ void jsonb_resolve_parser_token_object(struct parser* parser)
 		 jsonb_set_code_continue( parser );
 		 return;
  	} else if ( jsonb_token_cmp( token, JSONB_COMMA ) == 0 ) {
-		 jsonb_reset_parser(parser);
+         if ( jsonb_comma_child( parser, token ) == 0 ) {
+             return;
+         }
+         jsonb_set_opened( parser, &parser->opened_comma, JSONB_OPENED_VALUE );
+         jsonb_reset_parser( parser );
+         jsonb_set_code_continue( parser );
+         return;
 	} else if ( jsonb_token_cmp( token, JSONB_OBJECT_START_TOKEN ) == 0 ) {
 		if ( parser->opened_json.status != 0 ) {
 			jsonb_set_opened(parser, &parser->opened_json, JSONB_OPENED_VALUE);
@@ -837,22 +971,23 @@ void jsonb_resolve_parser_token_object(struct parser* parser)
 			return;
 		}
 		if ( parser->opened_value.status == 0 ) {
-	 		printf("Nested objects not implemented\r\n");
-			jsonb_set_code_error( parser );
+			jsonb_set_code_error( parser, "Nested objects not implemented" );
 		}
         jsonb_parser_error_index( parser, token );
 		return;
     } else if ( jsonb_token_int_cmp( parser, token ) == 0 ) {
         jsonb_resolve_child_parser(
         parser,
-        JSONB_PARSER_TYPE_INT);
+        JSONB_PARSER_TYPE_INT,
+        NULL);
         return;
 	} else if ( jsonb_token_end_cmp( token, JSONB_OBJECT_END_TOKEN ) == 0 ) {
-		if ( jsonb_parser_is_root( parser ) != 0 ){
+		if ( jsonb_parser_is_root( parser ) == 0 ){
 			jsonb_set_code_end( parser );
 			return;
 		}
-		jsonb_reset_parser( parser );
+		jsonb_set_opened(parser, &parser->opened_value, JSONB_OPENED_VALUE_CLOSED);
+		jsonb_set_code_continue( parser );
 		return;
     }
     jsonb_printf("jsonb_resolve_parser_token_obj adding to key\r\n");
@@ -863,6 +998,7 @@ void jsonb_resolve_parser_token_object(struct parser* parser)
       jsonb_set_code_continue( parser );
       return;
     }
+
     if ( jsonb_reserved_tokens( parser ) == JSONB_CONTINUE_READ ) {
        return;
      }
@@ -872,121 +1008,91 @@ void jsonb_resolve_parser_token_object(struct parser* parser)
 void jsonb_resolve_parser_token_str(struct parser* parser)
 {
 	char* token = jsonb_get_token(parser);
-	printf("jsonb_resolve_parser_token_str\r\n");
+    jsonb_printf("jsonb_resolve_parser_token_str: index %d, token: %s, code: %d opened_value: %d, opened_escape: %d\r\n", parser->index, token, parser->code, parser->opened_value.status, parser->opened_escape.status);
 	if ( strcmp(token, JSONB_QUOTE ) == 0 ) { 
-		if ( parser->opened_value.status != 0 ) {
+        if ( parser->opened_value.status == JSONB_OPENED_VALUE_UNINITIATED ) {
 			jsonb_set_opened(parser, &parser->opened_value, JSONB_OPENED_VALUE);
-			jsonb_set_code_continue(parser);
-			return;
-		}
-		if ( parser->opened_value.status == 0 ) {
-			jsonb_set_opened(parser, &parser->opened_value, -1);
-			jsonb_set_code_continue(parser);
-			return;
-		}
-		if ( parser->opened_escape.status == 0 ) {
-			jsonb_add_token( &parser->values->current->raw_value, token );
 			jsonb_set_code_continue( parser );
+            return;
+        }
+		if ( parser->opened_escape.status == JSONB_OPENED_VALUE ) {
+            jsonb_parser_str_escape( parser, token );
 			return;
 		}
-		printf("parsed string value %s\r\n", parser->values->current->raw_value);
-		jsonb_set_code_end( parser );
-		return;	
+        if (parser->opened_value.status != JSONB_OPENED_VALUE_CLOSED) {
+            jsonb_printf("parsed string value %s\r\n", parser->values->current->raw_value);
+            jsonb_set_opened(parser, &parser->opened_value, JSONB_OPENED_VALUE_CLOSED);
+		    jsonb_set_code_continue( parser );
+            return;	
+       }
 	} else if ( strcmp(token, JSONB_COMMA) == 0 ) {
-		if ( parser->opened_value.status != 0 ) {
-			jsonb_set_opened(parser, &parser->opened_comma, JSONB_OPENED_VALUE);
-			jsonb_set_code_end( parser );
-			return;
-		}
-		jsonb_add_token( &parser->values->current->raw_value, token );
-		jsonb_set_code_continue( parser );
-		return;
 
+        if ( jsonb_comma_child( parser, token ) == 0 ) {
+            return;
+        }
+	    jsonb_add_token( &parser->values->current->raw_value, token );
+		return;
 	} else if ( strcmp(token, JSONB_ESCAPE) == 0 ) {
 		if ( parser->opened_escape.status == 0 ) {
-			jsonb_add_token( &parser->values->current->raw_value, token );
-			jsonb_set_code_continue( parser );
+            jsonb_parser_str_escape( parser, token );
 			return;
 		}
 		jsonb_set_opened(parser, &parser->opened_escape, JSONB_OPENED_VALUE);
+		jsonb_set_code_continue( parser );
 		return;
 	} else if (jsonb_token_str_cmp( parser, token ) == 0 ) {
-        jsonb_add_token(&parser->values->current->raw_value, token);
-		jsonb_set_code_continue( parser );
+        jsonb_parser_str_add_char( parser, token );
         return;
     }
+    jsonb_printf("processing other character %s parser code: %d\r\n", token, parser->code);
+    if ( parser->opened_escape.status == 0 ) {
+        jsonb_parser_str_escape( parser, token );
+        return;
+    }
+    if ( jsonb_parent_end( parser, token ) == 0 ) {
+       return;
+    }
 
-    if ( jsonb_validate_parent_end( parser, token ) == 0 ) {
-		jsonb_add_token(&parser->values->current->raw_value, token);
-		jsonb_set_code_continue( parser );
-		return;
-	}
     jsonb_parser_error_index(parser, token);
 }
 
 void jsonb_resolve_reserved_keyword(struct parser* parser)
 {
-	jsonb_printf("jsonb_resolve_reserved_keyword index %d\r\n", parser->index);
 
 	char* token = jsonb_get_token(parser);
-	int len = strlen( parser->values->current->raw_value );
+	char* value = parser->values->current->raw_value;
+    
 	int parent_end = jsonb_parser_parent_end(parser, token);
-	if ( strcmp( token, JSONB_COMMA ) == 0 ) {
-		jsonb_set_opened( parser, &parser->opened_comma, JSONB_OPENED_VALUE );
-		jsonb_set_code_end( parser );
-		return;
-	} else if ( parent_end == 0 ) {
-		jsonb_set_code_end( parser );
-		return;
-	} else { 
-		jsonb_add_token( &parser->values->current->raw_value, token );
-		jsonb_set_code_continue( parser );
+	jsonb_printf("jsonb_resolve_reserved_keyword index %d current %s, keyword: %s parent_end: %d\r\n", parser->index, parser->values->current->raw_value, parser->keyword, parent_end);
+    if ( parser->opened_value.status == JSONB_OPENED_VALUE_CLOSED ) {
+	    if ( strcmp( token, JSONB_COMMA ) == 0) {
+            jsonb_comma_child( parser, token );
+            return;
+        } else if ( jsonb_parent_end( parser, token ) == 0 ) {
+            return;
+        } else if ( strcmp( token, JSONB_WHITESPACE ) == 0) {
+            jsonb_set_code_continue( parser );
+            return;
+        } 
+
+        jsonb_parser_error_index( parser, token );
+        return;
     }
-
+    jsonb_add_token(&parser->values->current->raw_value, token);
+    if ( strcmp( parser->values->current->raw_value, parser->keyword ) == 0 ) {
+        jsonb_set_opened( parser, &parser->opened_value, JSONB_OPENED_VALUE_CLOSED );
+        return;
+    }
 }
-
-void jsonb_resolve_parser_token_null(struct parser* parser)
-{
-	printf("jsonb_resolve_parser_token_null index %d\r\n", parser->index);
-
-	char* token = jsonb_get_token(parser);
-	int len = strlen( parser->values->current->raw_value );
-	int parent_end = jsonb_parser_parent_end(parser, token);
-
-	if ( strcmp( token, "n" ) == 0 ) {
-	 	jsonb_set_opened( parser, &parser->opened_value, JSONB_OPENED_VALUE );
-		jsonb_add_token( &parser->values->current->raw_value, token );
-		jsonb_set_code_continue( parser );
-	} else if ( strcmp( token, "u" ) == 0 && len == 1 ) {
-		jsonb_add_token( &parser->values->current->raw_value, token );
-		jsonb_set_code_continue( parser );
-	} else if ( strcmp( token, "l" ) == 0 && ( len == 2 ) )  {
-		jsonb_add_token( &parser->values->current->raw_value, token );
-		jsonb_set_code_continue( parser );
-	} else if ( strcmp( token, "l" ) == 0 && ( len == 3 ) )  {
-		jsonb_add_token( &parser->values->current->raw_value, token );
-		jsonb_set_opened( parser, &parser->opened_value, -1 );
-		jsonb_set_code_continue( parser );
-	} else if ( strcmp( token, JSONB_COMMA ) == 0 ) {
-		jsonb_set_opened( parser, &parser->opened_comma, JSONB_OPENED_VALUE );
-		jsonb_set_code_end( parser );
-		return;
-	} else if ( parent_end == 0 ) {
-		jsonb_set_code_end( parser );
-		return;
-	}
-
-}
-
 
 void jsonb_resolve_parser_token_int(struct parser* parser)
 {
-	printf("jsonb_resolve_parser_token_int %d\r\n", parser->index);
 	char* token = jsonb_get_token(parser);
+    jsonb_printf("jsonb_resolve_parser_token_int index: %d, token: %s\r\n", parser->index, token);
 	int verify = jsonb_verify_int( token );
 	int parent_end = jsonb_parser_parent_end(parser, token);
 	if ( verify == JSONB_CONTINUE_READ ) {
-		printf("jsonb_resolve_parser_token_int value %s\r\n", token);	
+	    jsonb_printf("jsonb_resolve_parser_token_int value %s\r\n", token);	
 
 		jsonb_add_token(&parser->values->current->raw_value, token );
 		jsonb_set_code_continue( parser );
@@ -997,29 +1103,22 @@ void jsonb_resolve_parser_token_int(struct parser* parser)
 		jsonb_set_code_continue( parser );
 		return;
 	} else if ( strcmp( token, JSONB_COMMA ) == 0 ) {
-		jsonb_set_code_end( parser );
-		jsonb_set_opened( parser, &parser->opened_comma, JSONB_OPENED_VALUE );
+        jsonb_set_opened( parser, &parser->opened_value, JSONB_OPENED_VALUE_CLOSED );
+        jsonb_comma_child( parser, token );
 		return;
 	} else if ( strcmp( token, JSONB_WHITESPACE) == 0 ) {
 		jsonb_set_code_end( parser );
 		return;
-	} else if ( parent_end == 0 ) {
-		parser->index -= 1;
-		jsonb_set_code_end( parser );
-
-		return;
-	} else {
-		printf("illegal value for int/float '%s'\r\n", token);
-		jsonb_set_code_error( parser );
-		return;
-	}
-
-
+	} 
+    if ( jsonb_parent_end( parser, token ) == 0) {	
+        return;
+    }
+	jsonb_parser_error_index( parser, token );
 }
 
-int jsonb_parse_from_str(struct parser** target, const char* str)
+void jsonb_parse_from_str(struct parser** target, const char* str)
 {
-	printf("Parsing JSONB string: %s\r\n", str);
+    jsonb_printf("Parsing JSONB string: %s\r\n", str);
 	struct parser* parser = (struct parser*) malloc(sizeof(struct parser));
 	parser->str = str;
 	parser->root = NULL;
@@ -1028,17 +1127,11 @@ int jsonb_parse_from_str(struct parser** target, const char* str)
 		parser, 
 		0 /** index **/, 
 		JSONB_PARSER_TYPE_UNKNOWN);
-	jsonb_resolve_parser( parser );
-	printf("parser status is %d\r\n", parser->status);
-	if (parser->status != 0) {
-		jsonb_cleanup_parser( parser );
-		return -1;
-	}
-	if (jsonb_parser_is_root(parser)!=0){
-		jsonb_cleanup_parser( parser );
-	}
 	*target = parser;
-	return 0;
+    if (parser->code == JSONB_READ_ERROR ) {
+        return;
+    }
+	jsonb_resolve_parser( parser );
 }
 
 void jsonb_write(JNIEnv* env, jobjectArray fields, jobjectArray objs, jclass cls, struct writer* writer)
@@ -1120,12 +1213,12 @@ jobjectArray jsonb_reset_java_array(JNIEnv* env, jclass target, jobjectArray* cu
 	jsize newlen = (currlen+1);
 	jobject obj = jsonb_create_java_object_from_class( env, target );	
 	jobjectArray new_array = (*env)->NewObjectArray(env, newlen, target, obj);
-	printf("JNI array currlen %d, newlen %d\r\n", currlen, newlen);
+    jsonb_printf("JNI array currlen %d, newlen %d\r\n", currlen, newlen);
 	for ( i = 0; i < currlen; i ++ ) {
 		jobject obj = (*env)->GetObjectArrayElement(env, target, i);
 		(*env)->SetObjectArrayElement(env, new_array, i, obj);
 	}
-	printf("created a new array based on new length\r\n");
+    jsonb_printf("created a new array based on new length\r\n");
 	return new_array;
 
 }
@@ -1139,33 +1232,6 @@ jobject jsonb_writer_get_current_obj(struct writer* writer)
 	jsize idx = (jsize) writer->obj_index;
 	obj = (*env)->GetObjectArrayElement(env, writer->objects, idx); 
 	return obj;
-}
-
-void jsonb_generic_parse(struct parser** parser, const char* str)
-{
-	jsonb_parse_from_str(parser, str);
-}
-
-
-int main_tests(int argc, char* argv[])
-{
-	//char* test_jsonb_str_1 = "{\"test\": 123, \"testing\": 909, \"example\": \"a string\", \"array\": [1,2,3]}";
-	//char* test_jsonb_str_1 = "[\"testing-example\", \"another-test\"]";
-	//char* test_jsonb_str_1 = "[\"testing\", \"example\"]";
-	//char* test_jsonb_str_1 = "[{ \"test\": \"value\", \"another\": 123 },, { \"nexttest\": \"another values\" }]";
-	struct parser* parser;
-	const char* test_jsonb_str_1 = "{\"test\": \"example\", \"another\": \"123\"}";	
-
-	int status =  jsonb_parse_from_str(  &parser, test_jsonb_str_1);
-	if ( status != 0 ) {
-		printf("error reading JSON return int is %d\r\n", status);
-		return -1;
-	}
-
-	//char* test_jsonb_str_2 = "[1, 2, 9]";
-	//jsonb_parse_from_str( test_jsonb_str_2 );
-
-	return 0;
 }
 
 int jsonb_token_cmp(char* token, const char* target)
@@ -1204,6 +1270,9 @@ int jsonb_token_str_cmp(struct parser* parser, char* token)
     if ( parser->opened_key.status == 0 ) {
         return -1;
     }
+    if ( parser->opened_value.status == JSONB_OPENED_VALUE_CLOSED ) {
+        return -1;
+    }
     if (token==NULL){
         return -1;
     }
@@ -1218,31 +1287,67 @@ int jsonb_token_str_cmp(struct parser* parser, char* token)
 
 int jsonb_validate_parent_end(struct parser* parser, char* token)
 {
-    if ( jsonb_parser_parent_end(parser, token) != 0 ) {
+    int code;
+    if ( jsonb_parser_parent_end(parser, token) == 0 ) {
        return 0;
     }
     if (parser->code == JSONB_END_OF_READ) {
         return 0;
     }
-    char* details;
-    sprintf(details, "Illegal end of parser at index %d", parser->index);
-
-    jsonb_parser_error(parser, details);
     return -1;
+}
+
+int jsonb_parent_end(struct parser* parser, char* token)
+{
+    int result = jsonb_validate_parent_end( parser, token );
+    if ( result == 0 ) {
+       jsonb_parser_index_dec( parser, 1 );
+       jsonb_set_code_end( parser );
+       return result;
+    }
+    return result;
 }
 
 void jsonb_parser_error(struct parser* parser, char* details)
 {
     puts(details);
-    jsonb_set_code_error(parser);
+    jsonb_set_code_error(parser, details);
 }
 
 void jsonb_parser_error_index(struct parser* parser, char* token)
 {
-    char* details;
+    char* details = (char*) malloc(sizeof(char)*1024);
     sprintf(details, "Illegal value '%s' at position %d", token, parser->index);
     jsonb_parser_error(parser,details);
 }
+
+void jsonb_parser_str_escape(struct parser* parser, char* token)
+{
+    jsonb_add_token( &parser->values->current->raw_value, token );
+    jsonb_set_opened(parser, &parser->opened_escape, -1);
+    jsonb_set_code_continue( parser );
+}
+
+void jsonb_parser_str_add_char(struct parser* parser, char* token)
+{
+    if ( parser->opened_escape.status == JSONB_OPENED_VALUE ) {
+        jsonb_parser_str_escape( parser, token );
+        return;
+    }
+    jsonb_add_token( &parser->values->current->raw_value, token );
+    jsonb_set_code_continue( parser );
+}
+
+void jsonb_parser_index_inc(struct parser* parser, int inc_val)
+{
+    parser->index += inc_val;
+}
+
+void jsonb_parser_index_dec(struct parser* parser, int dec_val)
+{
+    parser->index -= dec_val;
+}
+     
 
      
 void jsonb_printf(const char* fmt, ...)

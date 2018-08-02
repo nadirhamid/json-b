@@ -1,7 +1,6 @@
-# JSON-B C wrapper
-
-a native C11 based JSON-B parser/writer. supports fromJSONB and toJSONB for
-single objects and collections. 
+# JSON-B C wrapper 
+a native C11 based JSON-B parser/writer based on JNI. supports fromJSONB and toJSONB for
+single objects and collections. (work in progress)
 
 ## pre-requisites
 
@@ -42,9 +41,7 @@ public class Dog {
 }
 
 // serialize with json-b
-JSONBReflection reflection = new JSONBReflection();
-JSONBGenericCls<?> dogCls = new JSONBGenericCls<Dog>(Dog.Class);
-Dog dog = (Dog) reflection.fromJSONB("{name:\"Falco\",age:4,bitable:false}", dogCls);
+Dog dog = (Dog) reflection.fromJSONB("{\"name\":\"Falco\",\"age\":4,\"bitable\":false}", Dog.class);
 
 ```
 
@@ -58,22 +55,20 @@ dog.age = 4;
 dog.bitable = false;
 
 // serialize with json-b
-JSONBGenericCls<?> dogCls = new JSONBGenericCls<Dog>(Dog.Class);
-JSONBReflection reflection = new JSONBReflection();
-String result = reflection.toJSONB(dog, dogCls);
+Reflection reflection = new Reflection();
+String result = reflection.toJSONB(dog, Dog.class);
 ```
 
 ### working with collections
 
 ```
 // more than 1 dog
-JSONBReflection reflection = new JSONBReflection();
-JSONBGenericCls<?> dogCls = new JSONBGenericCls<Dog>(Dog.Class);
+Reflection reflection = new Reflection();
 // create our collection
-Dog[2] dogs = (Dog) reflection.fromJSONBArray("[{name:\"Falco\",age:4,bitable:false}, {name:\"Cassidy\",age:4,bitable:false}]", dogCls);
+Dog[2] dogs = (Dog) reflection.fromJSONBArray("[{\"name\":\"Falco\",\"age\":4,\"bitable\":false}, {\"name\":\"Cassidy\",\"age\":4,\"bitable\":false}]", Dog.class);
 
 // serialize into JSON-B string
-String result = reflection.toJSONBArray(dogs, dogCls);
+String result = reflection.toJSONBArray(dogs, Dog.class);
 ```
 
 more coming soon..
