@@ -94,7 +94,6 @@ struct parser {
 	struct opened_token opened_value;
 	struct opened_token opened_quote;
 	struct opened_token opened_array_value;
-	struct opened_token opened__comma;
 	struct opened_token opened_escape;
 	int type_validated;
 	int index;
@@ -159,7 +158,6 @@ void jsonb_parse_whitespace(struct parser* parser, char* token);
 void jsonb_parse_escape(struct parser* parser, char* token);
 void jsonb_init_dynamic_value(struct value_dynamic* value);
 int jsonb_verify_int(char* token);
-int jsonb_verify_null(struct parser* parser);
 int jsonb_verify_opened_json(struct parser* parser, char* token);
 int jsonb_verify_reserved_token(struct parser* parser, char* token, int len_read);
 void jsonb_resolve_writer(struct writer* writer);

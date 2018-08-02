@@ -158,25 +158,6 @@ int jsonb_reserved_tokens(struct parser* parser)
    return JSONB_READ_ERROR;
 }
 
-int jsonb_verify_null(struct parser* parser)
-{
-	char* val = "";
-    jsonb_printf("jsonb_verify_null\r\n");
-	int idx;
-	idx = parser->index;
-	jsonb_add_token(&val, jsonb_get_token_index(parser, &idx));
-	idx += 1;
-	jsonb_add_token(&val, jsonb_get_token_index(parser, &idx));
-	idx += 1;
-	jsonb_add_token(&val, jsonb_get_token_index(parser, &idx));
-	idx += 1;
-	jsonb_add_token(&val, jsonb_get_token_index(parser, &idx));
-	if ( strcmp( val, JSONB_NULL ) == 0 ) {
-		return JSONB_CONTINUE_READ;
-	}
-	return JSONB_READ_ERROR;
-}
-
 int jsonb_verify_reserved_token(struct parser* parser, char* token, int len_read)
 {
 	int idx;
