@@ -7,115 +7,119 @@ int jsonb_verify_opened_json(struct parser* parser, char* token)
   if ( parser->type_validated == 0 ) {
     jsonb_set_code_continue(parser);
     return JSONB_PARSER_TYPE_VALIDATED;
-	}
-	int type_array, type_object, type_str, type_int;
-	type_array = jsonb_check_type_or_unknown(parser, token, JSONB_ARRAY_START_TOKEN, JSONB_PARSER_TYPE_ARRAY);
-	type_object = jsonb_check_type_or_unknown(parser, token, JSONB_OBJECT_START_TOKEN, JSONB_PARSER_TYPE_OBJECT);
-	type_str = jsonb_check_type_or_unknown(parser, token, JSONB_QUOTE, JSONB_PARSER_TYPE_STR);
-	type_int = jsonb_verify_int(token);
-	if ( type_array == 0 ) {
+  }
+  int type_array, type_object, type_str, type_int;
+  type_array = jsonb_check_type_or_unknown(parser, token, JSONB_ARRAY_START_TOKEN, JSONB_PARSER_TYPE_ARRAY);
+  type_object = jsonb_check_type_or_unknown(parser, token, JSONB_OBJECT_START_TOKEN, JSONB_PARSER_TYPE_OBJECT);
+  type_str = jsonb_check_type_or_unknown(parser, token, JSONB_QUOTE, JSONB_PARSER_TYPE_STR);
+  type_int = jsonb_verify_int(token);
+  if ( type_array == 0 ) {
     jsonb_set_type_validated(parser, 0);
     jsonb_set_code_continue( parser );
     return JSONB_PARSER_TYPE_ARRAY;
-	} else if ( type_object == 0 ) {
+  } else if ( type_object == 0 ) {
     jsonb_set_type_validated(parser, 0);
     jsonb_set_code_continue( parser );
     return JSONB_PARSER_TYPE_OBJECT;
-	} else if ( type_str == 0 ) {
+  } else if ( type_str == 0 ) {
     jsonb_set_type_validated(parser, 0);
     jsonb_set_code_continue( parser );
     return JSONB_PARSER_TYPE_STR;
-	} else if (type_int == JSONB_CONTINUE_READ) {
+  } else if (type_int == JSONB_CONTINUE_READ) {
     jsonb_set_type_validated(parser, 0);
     jsonb_set_code_continue( parser );
     return JSONB_PARSER_TYPE_INT;
-	}
-	return -1;
+  }
+  return -1;
 }
 
 
 int jsonb_check_type_or_unknown(struct parser* parser, char* token, char* expects, int type)
 {
   jsonb_debugf("jsonb_check_type_or_unknown index: %d, token: %s\r\n", parser->index, token);
- 	if (strcmp(token, expects) == 0 && ( parser->type == type || parser->type == JSONB_PARSER_TYPE_UNKNOWN)) {
-	     return 0;
-	}
- 	return -1;
+  if (strcmp(token, expects) == 0 && ( parser->type == type || parser->type == JSONB_PARSER_TYPE_UNKNOWN)) {
+    return 0;
+  }
+
+  return -1;
 }
 
 int jsonb_parser_is_root(struct parser* parser)
 {
-	if ( parser->root == NULL ) {
-		return 0;
-	}
-	return -1;
+  if ( parser->root == NULL ) {
+    return 0;
+  }
+
+  return -1;
 }
 
 struct parser* jsonb_parser_get_root(struct parser* parser)
 {
-	if ( parser->root == NULL ) {
-		return parser;
-	}
-	return parser->root;
+  if ( parser->root == NULL ) {
+    return parser;
+  }
+
+  return parser->root;
 }
 
 int jsonb_parser_parent_end(struct parser* parser, char* token)
 {
   jsonb_debugf("jsonb_parser_parent_end\r\n");
-	int root;
+  int root;
   struct parser* parent;
 
-	if ( parser->root == NULL ){
-		return -1;
-	}
-	parent = parser->parent;
+  if ( parser->root == NULL ){
+    return -1;
+  }
+  parent = parser->parent;
   jsonb_debugf("jsonb_parser_parent_end parent type: %d\r\n", parent->type);
 
-	if (parent->type == JSONB_PARSER_TYPE_OBJECT && strcmp( token, JSONB_OBJECT_END_TOKEN ) == 0) {
-		return 0;
-	}
-	if ( parent->type == JSONB_PARSER_TYPE_ARRAY && strcmp( token, JSONB_ARRAY_END_TOKEN ) == 0 ) {
-		return 0;
-	}
+  if (parent->type == JSONB_PARSER_TYPE_OBJECT && strcmp( token, JSONB_OBJECT_END_TOKEN ) == 0) {
+    return 0;
+  }
+  if ( parent->type == JSONB_PARSER_TYPE_ARRAY && strcmp( token, JSONB_ARRAY_END_TOKEN ) == 0 ) {
+    return 0;
+  }
 
-	return -1;
+  return -1;
 }
 
 
 int jsonb_parser_first_token(struct parser* parser)
 {
-	int root;
-	root = jsonb_parser_is_root(parser);
-	if ( root == 0 || ( parser->index == parser->parent->index ) ) {
-	    return 0;
-	}
-	return -1;
+  int root;
+  root = jsonb_parser_is_root(parser);
+  if ( root == 0 || ( parser->index == parser->parent->index ) ) {
+    return 0;
+  }
+
+  return -1;
 }
 
 int jsonb_verify_int(char* token)
 {
-	long lnum;
-	int num;
-	char* end;
-	lnum = strtol( token, &end, 10 /** base10 **/);
-	if ( end == token ) {
-	   return JSONB_READ_ERROR;
-	}
+  long lnum;
+  int num;
+  char* end;
+  lnum = strtol( token, &end, 10 /** base10 **/);
+  if ( end == token ) {
+    return JSONB_READ_ERROR;
+  }
 
-	return JSONB_CONTINUE_READ;
+  return JSONB_CONTINUE_READ;
 }
 
 int jsonb_verify_str(char* token)
 {
   int token_int = (int) *token;
   if( isalpha( token_int ) ) {
-       return JSONB_CONTINUE_READ;
+    return JSONB_CONTINUE_READ;
   }
   if ( isdigit( token_int ) ) {
-      return JSONB_CONTINUE_READ;
+    return JSONB_CONTINUE_READ;
   }
   if ( strcmp( token, JSONB_WHITESPACE ) == 0 ) {
-      return JSONB_CONTINUE_READ;
+    return JSONB_CONTINUE_READ;
   }
   return JSONB_READ_ERROR;
 }
@@ -149,30 +153,30 @@ int jsonb_verify_reserved_token(struct parser* parser, char* token, int len_read
 {
   int idx;
   const char* str;
-	jsonb_parser_get_str( parser, &str );
+  jsonb_parser_get_str( parser, &str );
 
   int len = strlen( str );
   idx = parser->index;
   int left = ( len - ( idx + 1 ) );
-	char* val = "";
+  char* val = "";
   char* token_idx;
 
   jsonb_debugf("jsonb_verify_reserved_token reading left: %d\r\n", left);
   if (left<len_read) {
-      return JSONB_READ_ERROR;
+    return JSONB_READ_ERROR;
   }
   while ( ( idx - parser->index ) != len_read ) {
-      token_idx = jsonb_get_token_index(parser, &idx);
-      jsonb_add_token(&val, token_idx);
-      ++ idx;
+    token_idx = jsonb_get_token_index(parser, &idx);
+    jsonb_add_token(&val, token_idx);
+    ++ idx;
   }
 
   jsonb_debugf("jsonb_verify_reserved_token result %s\r\n", val);
-	if ( strcmp( val, token ) == 0 ) {
-		return JSONB_CONTINUE_READ;
-	}
+  if ( strcmp( val, token ) == 0 ) {
+    return JSONB_CONTINUE_READ;
+  }
 
-	return JSONB_READ_ERROR;
+  return JSONB_READ_ERROR;
 }
 
 void jsonb_debug_parser(struct parser* parser)
@@ -210,12 +214,12 @@ void jsonb_debug_array(struct parser* parser, struct value_array*  array)
   ptr = array->head;
   jsonb_debugf("jsonb_debug_array head value %s\r\n", ptr->raw_value);
 
-	while ( ptr != NULL ) {
-		jsonb_debug_value( parser, ptr );
-		ptr = ptr->next;
-	}
+  while ( ptr != NULL ) {
+    jsonb_debug_value( parser, ptr );
+    ptr = ptr->next;
+  }
 
-	ptr = array->head;
+  ptr = array->head;
 }
 
 void jsonb_free_array(struct parser* parser, struct value_array*  array)
@@ -224,10 +228,10 @@ void jsonb_free_array(struct parser* parser, struct value_array*  array)
   struct value_dynamic** ptr;
   ptr = &array->head;
   jsonb_debugf("jsonb_free_array head value %s\r\n", (*ptr)->raw_value);
-	while ( *ptr != NULL ) {
+  while ( *ptr != NULL ) {
     free( *ptr );
     ptr = &((*ptr)->next);
-	}
+  }
   free( parser->values );
 }
 
@@ -277,13 +281,12 @@ void jsonb_set_code_end_all(struct parser* parser)
   parser->code = JSONB_END_OF_READ_ALL;
 }
 
-
 void jsonb_set_value_from_child(struct parser* parser, struct parser* child)
 {
   jsonb_debugf("jsonb_set_value_from_child parser type %d\r\n", child->type);
-	parser->index = child->index;
+  parser->index = child->index;
   jsonb_parser_value_next( parser, child );
-	jsonb_reset_parser(parser);
+  jsonb_reset_parser(parser);
 }
 
 void jsonb_set_opened_status(struct parser* parser)
@@ -305,16 +308,16 @@ void jsonb_set_opened(struct parser* parser, struct opened_token* opened_token, 
     return;
   }
 
-	opened_token->index = -1;
-	opened_token->status = opened;
+  opened_token->index = -1;
+  opened_token->status = opened;
 }
 
 
 void jsonb_init_opened_token(struct opened_token* opened)
 {
-	// index is when parser finds this token
-	opened->status = -1;
-	opened->index = -1;
+  // index is when parser finds this token
+  opened->status = -1;
+  opened->index = -1;
 }
 
 void jsonb_copy_llist_value(struct value_dynamic* src, struct value_dynamic* dst)
@@ -362,8 +365,8 @@ void jsonb_copy_llist(struct parser* parser, struct value_dynamic** ptr1, struct
 void jsonb_comma(struct parser* parser, char* token)
 {
   if (parser->opened_comma.status == JSONB_OPENED_VALUE) {
-      jsonb_parser_error_index(parser, token);
-      return;
+    jsonb_parser_error_index(parser, token);
+    return;
   }
 
   jsonb_set_opened( parser, &parser->opened_comma, JSONB_OPENED_VALUE );
@@ -765,8 +768,8 @@ void jsonb_resolve_writer_object(struct writer* writer)
     if ( (field_len-1) != i ) {
       jsonb_add_token( output, JSONB_COMMA );
     }
-	}
-	jsonb_add_token(output, JSONB_OBJECT_END_TOKEN);
+  }
+  jsonb_add_token(output, JSONB_OBJECT_END_TOKEN);
 }
 
 void jsonb_resolve_parser_token_array(struct parser* parser)
@@ -775,7 +778,7 @@ void jsonb_resolve_parser_token_array(struct parser* parser)
   jsonb_debugf("jsonb_resolve_parser_token_array vtoken %s, object index: %d\r\n", token, parser->obj_index);
   if ( jsonb_reserved_tokens( parser ) == JSONB_CONTINUE_READ ) {
      return;
-   }
+  }
   if ( jsonb_parent_end( parser, token ) == 0 ) {
      return;
   }
@@ -795,19 +798,18 @@ void jsonb_resolve_parser_token_array(struct parser* parser)
     jsonb_set_code_continue( parser );
   } else if ( jsonb_token_end_cmp( token, JSONB_ARRAY_END_TOKEN ) == 0) {
     jsonb_set_code_end( parser );
-	} else if ( jsonb_token_cmp( token, JSONB_OBJECT_START_TOKEN ) == 0 ) {
+  } else if ( jsonb_token_cmp( token, JSONB_OBJECT_START_TOKEN ) == 0 ) {
     jsonb_debugf("jsonb_resolve_parser_token_array creating object at index %d\r\n", parser->obj_index);
-		parser->obj_index += 1;
-
+    parser->obj_index += 1;
     jsonb_resolve_child_parser( parser, JSONB_PARSER_TYPE_OBJECT, NULL);
-	} else if ( jsonb_token_cmp( token, JSONB_COMMA ) == 0 ) {
+  } else if ( jsonb_token_cmp( token, JSONB_COMMA ) == 0 ) {
     if ( jsonb_comma_child( parser, token ) == 0 ) {
        return;
     }
     jsonb_set_opened( parser, &parser->opened_comma, JSONB_OPENED_VALUE );
     jsonb_reset_parser( parser );
     jsonb_set_code_continue( parser );
-	} else {
+  } else {
     jsonb_parser_error_index(  parser, token );
   }
 }
@@ -869,7 +871,7 @@ void jsonb_resolve_parser_token_object(struct parser* parser)
     jsonb_set_opened( parser, &parser->opened_comma, JSONB_OPENED_VALUE );
     jsonb_reset_parser( parser );
     jsonb_set_code_continue( parser );
-	} else if ( jsonb_token_cmp( token, JSONB_OBJECT_START_TOKEN ) == 0 ) {
+  } else if ( jsonb_token_cmp( token, JSONB_OBJECT_START_TOKEN ) == 0 ) {
     if ( parser->opened_json.status != 0 ) {
       jsonb_set_opened(parser, &parser->opened_json, JSONB_OPENED_VALUE);
       parser->obj_index = 0;
@@ -885,13 +887,13 @@ void jsonb_resolve_parser_token_object(struct parser* parser)
     jsonb_parser_error_index( parser, token );
   } else if ( jsonb_token_int_cmp( parser, token ) == 0 ) {
     jsonb_resolve_child_parser( parser, JSONB_PARSER_TYPE_INT, NULL);
-	} else if ( jsonb_token_end_cmp( token, JSONB_OBJECT_END_TOKEN ) == 0 ) {
-		if ( jsonb_parser_is_root( parser ) == 0 ){
+  } else if ( jsonb_token_end_cmp( token, JSONB_OBJECT_END_TOKEN ) == 0 ) {
+    if ( jsonb_parser_is_root( parser ) == 0 ){
       jsonb_set_code_end( parser );
       return;
-		}
-		jsonb_set_opened(parser, &parser->opened_value, JSONB_OPENED_VALUE_CLOSED);
-		jsonb_set_code_continue( parser );
+    }
+    jsonb_set_opened(parser, &parser->opened_value, JSONB_OPENED_VALUE_CLOSED);
+    jsonb_set_code_continue( parser );
   } else {
     jsonb_debugf("jsonb_resolve_parser_token_obj adding to key\r\n");
 
@@ -927,7 +929,7 @@ void jsonb_resolve_parser_token_str(struct parser* parser)
       jsonb_debugf("parsed string value %s\r\n", parser->values->current->raw_value);
       jsonb_set_opened(parser, &parser->opened_value, JSONB_OPENED_VALUE_CLOSED);
       jsonb_set_code_continue( parser );
-      return;	
+      return;  
     }
   } else if ( strcmp(token, JSONB_COMMA) == 0 ) {
     if ( jsonb_comma_child( parser, token ) == 0 ) {
@@ -976,12 +978,11 @@ void jsonb_resolve_reserved_keyword(struct parser* parser)
     } 
 
     jsonb_parser_error_index( parser, token );
-  } else {
-    jsonb_add_token(&parser->values->current->raw_value, token);
-    if ( strcmp( parser->values->current->raw_value, parser->keyword ) == 0 ) {
-      jsonb_set_opened( parser, &parser->opened_value, JSONB_OPENED_VALUE_CLOSED );
-      return;
-    }
+  } 
+
+  jsonb_add_token(&parser->values->current->raw_value, token);
+  if ( strcmp( parser->values->current->raw_value, parser->keyword ) == 0 ) {
+    jsonb_set_opened( parser, &parser->opened_value, JSONB_OPENED_VALUE_CLOSED );
   }
 }
 
@@ -992,7 +993,7 @@ void jsonb_resolve_parser_token_int(struct parser* parser)
   int verify = jsonb_verify_int( token );
   int parent_end = jsonb_parser_parent_end(parser, token);
   if ( verify == JSONB_CONTINUE_READ ) {
-    jsonb_debugf("jsonb_resolve_parser_token_int value %s\r\n", token);	
+    jsonb_debugf("jsonb_resolve_parser_token_int value %s\r\n", token);  
     jsonb_add_token(&parser->values->current->raw_value, token );
     jsonb_set_code_continue( parser );
   } else if ( strcmp( token, JSONB_FLOAT_PRECISION ) == 0 ) {
@@ -1005,8 +1006,8 @@ void jsonb_resolve_parser_token_int(struct parser* parser)
   } else if ( strcmp( token, JSONB_WHITESPACE) == 0 ) {
     jsonb_set_code_end( parser );
   } else { 
-    if ( jsonb_parent_end( parser, token ) == 0) {	
-        return;
+    if ( jsonb_parent_end( parser, token ) == 0) {  
+      return;
     }
     jsonb_parser_error_index( parser, token );
   }
@@ -1041,7 +1042,7 @@ void jsonb_write(JNIEnv* env, jobjectArray fields, jobjectArray objs, jclass cls
 void jsonb_writer_validate_null_str(struct writer* writer, char** output, jstring strfield)
 {
   if ( strfield == NULL ) {
-   jsonb_write_null( output );
+    jsonb_write_null( output );
     return;
   }
 
