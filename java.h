@@ -7,6 +7,8 @@ jobject create_jobject_from_jsonb(JNIEnv* env, jclass target, struct value_array
 
 jint throw_jsonb_parser_ex( JNIEnv *env, const char *message );
 
+void process_value_type(struct value_dynamic* ptr, JNIEnv* env, jclass cls, jobject obj);
+
 JNIEXPORT jobject JNICALL Java_com_infinitet3ch_jsonb_Reflection_fromJSONB(JNIEnv *, jobject, jstring, jclass, jobjectArray);
 
 JNIEXPORT jobjectArray JNICALL Java_com_infinitet3ch_jsonb_Reflection_fromJSONBArray(JNIEnv *, jobject, jstring, jclass, jobjectArray);
