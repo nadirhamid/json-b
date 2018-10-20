@@ -30,6 +30,7 @@
 #define JSONB_VALUE_NULL 5
 #define JSONB_VALUE_OBJECT 6
 #define JSONB_VALUE_ARRAY 7
+#define JSONB_ERROR_BUF_LEN 1024
 #include <jni.h>
 #include <float.h>
 #include <ctype.h>
@@ -128,7 +129,7 @@ struct writer {
 };
 	
 void jsonb_parse_from_str(struct parser** parser, const char* str);
-void jsonb_printf(const char* fmt, ...);
+void jsonb_debugf(const char* fmt, ...);
 void jsonb_write(JNIEnv* env, jobjectArray fields, jobjectArray objs, jclass cls, struct writer* writer);
 void jsonb_write_obj(JNIEnv* env, jobjectArray fields, jobjectArray objs, jclass cls, struct writer* writer);
 
@@ -190,13 +191,11 @@ void jsonb_cleanup_parser(struct parser* parser);
 void jsonb_free_array(struct parser* parser, struct value_array* value);
 
 void jsonb_parser_get_str(struct parser* parser, const char** str);
-void jsonb_dynamic_value_as_char(struct value_dynamic* value);
 void jsonb_parser_determine_end(struct parser* parser);
 void jsonb_debug_array(struct parser* parser, struct value_array* array);
 void jsonb_debug_key_value(struct parser* parser, struct value_dynamic* value);
 void jsonb_debug_value(struct parser* parser, struct value_dynamic* value);
 jobject jsonb_create_java_object_from_class(JNIEnv* env, jclass cls);
-jobjectArray jsonb_reset_java_array(JNIEnv* env, jclass target, jobjectArray* current);
 int jsonb_token_cmp(char* token, const char* target);
 int jsonb_token_end_cmp(char* token, const char* target);
 int jsonb_token_int_cmp(struct parser* parser, char* token);
