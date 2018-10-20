@@ -49,85 +49,85 @@ struct value_object;
 struct opened_token;
 
 struct value_str {
-	char* value;
+  char* value;
 };
 struct value_int {
-	int value;
+  int value;
 };
 struct value_float {
-	float value;
+  float value;
 };
 
 struct value_dynamic {
-	int type;
-	int int_value;
-	jboolean jboolean_value;
-	float float_value;
-	char* str_value;
-	char* raw_value;
-	char* key;
-	jstring* jstring_value;
-	struct value_array* array_value;
-	struct value_object* object_value;
-	struct value_dynamic* next;
+  int type;
+  int int_value;
+  jboolean jboolean_value;
+  float float_value;
+  char* str_value;
+  char* raw_value;
+  char* key;
+  jstring* jstring_value;
+  struct value_array* array_value;
+  struct value_object* object_value;
+  struct value_dynamic* next;
 };
-	
+  
 struct value_array {
-	struct value_dynamic* head;
-	struct value_dynamic* next;
-	struct value_dynamic* current;
- 	int len;
+  struct value_dynamic* head;
+  struct value_dynamic* next;
+  struct value_dynamic* current;
+  int len;
 };
 
 struct value_object {
-	struct value_array* values;
+  struct value_array* values;
 };
 struct opened_token {
-	int index;
-	int status;
+  int index;
+  int status;
 };
 
 struct parser {
-	struct opened_token opened_json;
-	struct opened_token opened_key;
-	struct opened_token opened_colon;
-	struct opened_token opened_comma;
-	struct opened_token opened_value;
-	struct opened_token opened_quote;
-	struct opened_token opened_array_value;
-	struct opened_token opened_escape;
-	int type_validated;
-	int index;
-	int type;
-	int code;
-	int status;
-	const char* str;
-    char* error;
-	char* key;
-	char* end_token;
-    char* keyword;
-	struct value_array* values;
-	struct parser* parent;
-	struct parser* root;
-	jobjectArray* fields;
-	jclass cls;
-	JNIEnv* env;
-	int obj_index;
+  struct opened_token opened_json;
+  struct opened_token opened_key;
+  struct opened_token opened_colon;
+  struct opened_token opened_comma;
+  struct opened_token opened_value;
+  struct opened_token opened_quote;
+  struct opened_token opened_array_value;
+  struct opened_token opened_escape;
+  int type_validated;
+  int index;
+  int type;
+  int code;
+  int status;
+  const char* str;
+  char* error;
+  char* key;
+  char* end_token;
+  char* keyword;
+  struct value_array* values;
+  struct parser* parent;
+  struct parser* root;
+  jobjectArray* fields;
+  jclass cls;
+  JNIEnv* env;
+  int obj_index;
 };
 
 
 struct writer {
-	char* output;
-	jobjectArray objects;
-	jobjectArray fields;
-	jclass cls;
-	JNIEnv* env;
-	struct writer* parent;
-	struct writer* root;
-	int status;
-	int obj_index;
+  char* output;
+  jobjectArray objects;
+  jobjectArray fields;
+  jclass cls;
+  JNIEnv* env;
+  struct writer* parent;
+  struct writer* root;
+  int status;
+  int obj_index;
 };
-	
+  
 void jsonb_parse_from_str(struct parser** parser, const char* str);
 void jsonb_debugf(const char* fmt, ...);
 void jsonb_write(JNIEnv* env, jobjectArray fields, jobjectArray objs, jclass cls, struct writer* writer);
