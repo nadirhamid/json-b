@@ -362,18 +362,7 @@ void jsonb_copy_llist(struct parser* parser, struct value_dynamic** ptr1, struct
   }
 }
 
-void jsonb_comma(struct parser* parser, char* token)
-{
-  if (parser->opened_comma.status == JSONB_OPENED_VALUE) {
-    jsonb_parser_error_index(parser, token);
-    return;
-  }
-
-  jsonb_set_opened(parser, &parser->opened_comma, JSONB_OPENED_VALUE);
-  jsonb_reset_parser(parser);
-}
-
-int jsonb_comma_child(struct parser* parser, char* token)
+int jsonb_parsing_next(struct parser* parser, char* token)
 {
   if (parser->opened_value.status == JSONB_OPENED_VALUE_CLOSED) {
     jsonb_set_opened(parser, &parser->opened_comma, JSONB_OPENED_VALUE);
@@ -803,7 +792,7 @@ void jsonb_resolve_parser_token_array(struct parser* parser)
     parser->obj_index += 1;
     jsonb_resolve_child_parser(parser, JSONB_PARSER_TYPE_OBJECT, NULL);
   } else if (jsonb_token_cmp(token, JSONB_COMMA) == 0) {
-    if (jsonb_comma_child(parser, token) == 0) {
+    if (jsonb_parsing_next(parser, token) == 0) {
        return;
     }
     jsonb_set_opened(parser, &parser->opened_comma, JSONB_OPENED_VALUE);
@@ -865,7 +854,7 @@ void jsonb_resolve_parser_token_object(struct parser* parser)
     jsonb_add_token(&parser->values->current->raw_value, token);
     jsonb_set_code_continue(parser);
   } else if (jsonb_token_cmp(token, JSONB_COMMA) == 0) {
-    if (jsonb_comma_child(parser, token) == 0) {
+    if (jsonb_parsing_next(parser, token) == 0) {
       return;
     }
     jsonb_set_opened(parser, &parser->opened_comma, JSONB_OPENED_VALUE);
@@ -932,7 +921,7 @@ void jsonb_resolve_parser_token_str(struct parser* parser)
       return;  
     }
   } else if (strcmp(token, JSONB_COMMA) == 0) {
-    if (jsonb_comma_child(parser, token) == 0) {
+    if (jsonb_parsing_next(parser, token) == 0) {
       return;
     }
     jsonb_add_token(&parser->values->current->raw_value, token);
@@ -968,7 +957,7 @@ void jsonb_resolve_reserved_keyword(struct parser* parser)
   jsonb_debugf("jsonb_resolve_reserved_keyword index %d current %s, keyword: %s parent_end: %d\r\n", parser->index, parser->values->current->raw_value, parser->keyword, parent_end);
   if (parser->opened_value.status == JSONB_OPENED_VALUE_CLOSED) {
     if (strcmp(token, JSONB_COMMA) == 0) {
-      jsonb_comma_child(parser, token);
+      jsonb_parsing_next(parser, token);
       return;
     } else if (jsonb_parent_end(parser, token) == 0) {
       return;
@@ -1002,7 +991,7 @@ void jsonb_resolve_parser_token_int(struct parser* parser)
     jsonb_set_code_continue(parser);
   } else if (strcmp(token, JSONB_COMMA) == 0) {
     jsonb_set_opened(parser, &parser->opened_value, JSONB_OPENED_VALUE_CLOSED);
-    jsonb_comma_child(parser, token);
+    jsonb_parsing_next(parser, token);
   } else if (strcmp(token, JSONB_WHITESPACE) == 0) {
     jsonb_set_code_end(parser);
   } else { 
