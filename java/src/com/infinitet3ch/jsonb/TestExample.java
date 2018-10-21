@@ -27,6 +27,7 @@ class TestExample {
 			int i;
             int j;
 			String str = "";
+      System.out.println("starting JSON-B demonstration..");
 			Reflection reflection = new Reflection();
             String parseObjStr = "{\"name\": \"Falco\", \"age\": 4, \"bitable\": false}";
 			String parseObjArrStr = "[{\"name\": \"Falco\", \"age\": 4, \"bitable\": false}, {\"name\": \"Cassidy\", \"age\": 5, \"bitable\": false}]";
@@ -38,6 +39,7 @@ class TestExample {
             Dog reparsedObj;
 
 			for ( i = 0; i != 10; i ++ ) {
+                System.out.println("test trial (" + i + ")");
                 obj = (Dog) reflection.fromJSONB(parseObjStr, exampleClass);
                 TestExample.dumpObject( obj );
                 objs = (Dog[]) reflection.fromJSONBArray(parseObjArrStr, exampleClass);
@@ -63,7 +65,9 @@ class TestExample {
 			e.printStackTrace();
 		} catch (IllegalArgumentException e) {
 			e.printStackTrace();
-		}
+		} catch (Exception e) {
+			e.printStackTrace();
+    }
 	}
 
 }

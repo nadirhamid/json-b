@@ -27,9 +27,6 @@ void process_value_type( struct value_dynamic* ptr, JNIEnv* env, jclass cls, job
   } else if (ptr->type == JSONB_PARSER_TYPE_ARRAY) {
   } else if (ptr->type == JSONB_PARSER_TYPE_OBJECT) {
   }
-
-  free( ptr->key );
-  ptr = ptr->next;
 }
 
 jobject create_jobject_from_jsonb(JNIEnv* env, jclass cls, struct value_array* values)
@@ -63,6 +60,7 @@ JNIEXPORT jobject JNICALL Java_com_infinitet3ch_jsonb_Reflection_fromJSONB(JNIEn
   jint ex;
   jsonb_parse_from_str(&parser, str);
   (*env)->ReleaseStringUTFChars(env, jstr, str);
+
   if (parser->code == JSONB_READ_ERROR) {
     jsonb_debugf("JSONB parser resulted in error\r\n");
     ex =  throw_jsonb_parser_ex( env, parser->error );
