@@ -239,7 +239,7 @@ void jsonb_free_array(struct parser* parser, struct value_array*  array)
 void jsonb_debug_value(struct parser* parser, struct value_dynamic* value)
 {
   jsonb_debugf("jsonb_debug_value key: %s\r\n", value->key);
-  if (value->type == JSONB_PARSER_TYPE_INT:
+  if (value->type == JSONB_PARSER_TYPE_INT) {
     jsonb_debugf("key: %s int value: %d\r\n", value->key, value->int_value);
   } else if (value->type ==  JSONB_PARSER_TYPE_FLOAT) {
     jsonb_debugf("key: %s int value: %.6f\r\n", value->key, value->float_value);
@@ -702,7 +702,6 @@ void jsonb_resolve_writer_object(struct writer* writer)
   jsize index = writer->obj_index;
   jobject obj = (*env)->GetObjectArrayElement(env, writer->objects, index);
   field_len = (*env)->GetArrayLength(env, writer->fields);
-  jclass field_cls= (*env)->FindClass(env, "com/jsonb/ExecJar/ReflectionType");
   jstring strfield;
   jfieldID val_field;
   const char* key;
