@@ -499,7 +499,7 @@ void jsonb_add_token(char** context, char* token)
   new_context = (char*) malloc((total_len) + 1);
   strcpy(new_context, *context);
   strcat(new_context, token);
-  new_context[ total_len ] = 0x00;
+  new_context[ total_len ] = '\0';
   *context = new_context;
 }
 
@@ -585,7 +585,7 @@ char* jsonb_get_token_index(struct parser* parser, int* index)
     my_char = str[ *index ];
     token = (char*)malloc(sizeof(char));
     *token = my_char;
-    token[1] = 0x00;
+    token[1] = '\0';
     return token;
   }
 
@@ -653,7 +653,7 @@ void jsonb_resolve_child_parser(struct parser* parent, int type, char* keyword)
   parser->values->current->key = NULL;
   parser->values->len = 1;
   parser->values->head = parser->values->current;
-  parser->key = 0x00;
+  parser->key = '\0';
   parser->type = type;
   parser->type_validated = 0;
   parser->code = JSONB_CONTINUE_READ;
